@@ -17,3 +17,225 @@
 .wildcard-symbol{display:inline-grid;place-items:center;line-height:1;font-size:1.05em;color:currentColor}.wildcard-image{display:block;max-width:88%;max-height:88%;object-fit:contain}.print-art-card{position:relative;overflow:hidden;aspect-ratio:210/297;border:0;border-radius:0;background:#fff;padding:0;color:#0f172a}.print-artwork{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover}.print-game-zone{position:absolute;z-index:2;overflow:hidden}.print-game-zone .print-game{width:100%;height:100%;border:0;border-radius:0;padding:0;background:transparent}.print-game-zone .print-grid{width:100%;height:100%;gap:1px;margin:0;background:rgba(255,255,255,.94)}.print-game-zone .print-head,.print-game-zone .print-cell{min-height:0;border-radius:0;font-size:clamp(7px,1.18vw,18px);line-height:1}.print-game-zone .print-head{background:#111827;color:#fff}.print-game-zone .print-cell{border:1px solid rgba(15,23,42,.55);background:rgba(255,255,255,.96);color:#0f172a}.imposition-page{display:grid;box-sizing:border-box;margin:0 auto;padding:6mm;gap:3mm;align-content:start;justify-content:center;background:white;box-shadow:0 10px 35px rgba(0,0,0,.28);overflow:hidden}.imposition-page .print-card{width:100%;height:100%;break-inside:avoid;page-break-inside:avoid}
 @media screen and (max-width:640px){.imposition-page{transform-origin:top left;max-width:100%;height:auto!important;aspect-ratio:210/297;padding:10px!important;gap:6px!important}.print-game-zone .print-head,.print-game-zone .print-cell{font-size:clamp(5px,1.7vw,10px)}}
 @media print{.imposition-page{box-shadow:none;margin:0;break-after:page;page-break-after:always;overflow:hidden}.imposition-page:last-child{break-after:auto;page-break-after:auto}.print-artwork{print-color-adjust:exact;-webkit-print-color-adjust:exact}.print-game-zone .print-head,.print-game-zone .print-cell{print-color-adjust:exact;-webkit-print-color-adjust:exact}.print-card{break-inside:avoid;page-break-inside:avoid}}
+
+
+/* Fase 12.2 — responsividade sem sobreposição */
+.bingoup-app .bingoup-topbar{
+  position:relative;
+  top:auto;
+  z-index:20;
+  min-width:0;
+  gap:12px;
+}
+.bingoup-app .bingoup-top-logo{
+  display:block;
+  width:min(180px,42vw);
+  max-height:46px;
+  object-fit:contain;
+  object-position:left center;
+}
+.bingoup-app .bingoup-top-actions{
+  display:flex;
+  min-width:0;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+}
+.bingoup-app .bingoup-menu-button{
+  display:grid;
+  width:42px;
+  height:42px;
+  flex:0 0 42px;
+  place-content:center;
+  gap:5px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:#151b23;
+  color:white;
+}
+.bingoup-app .bingoup-menu-button span{
+  display:block;
+  width:18px;
+  height:2px;
+  border-radius:99px;
+  background:currentColor;
+}
+.bingoup-app .bingoup-main{
+  width:100%;
+  max-width:1560px;
+  margin:0 auto;
+  overflow-x:clip;
+}
+.bingoup-app .bingoup-page-head,
+.bingoup-app .bingoup-event-row,
+.bingoup-app .bingoup-quick,
+.bingoup-app .bingoup-trust{
+  min-width:0;
+}
+.bingoup-app .bingoup-page-head > div,
+.bingoup-app .bingoup-event-row > div,
+.bingoup-app .bingoup-quick > span{
+  min-width:0;
+}
+.bingoup-app .bingoup-page-head h1,
+.bingoup-app .bingoup-page-head p,
+.bingoup-app .bingoup-event-row strong,
+.bingoup-app .bingoup-event-row p,
+.bingoup-app .bingoup-quick strong,
+.bingoup-app .bingoup-quick small{
+  overflow-wrap:anywhere;
+}
+.bingoup-app .bingoup-mobile-nav{
+  display:none;
+}
+.bingoup-app .bingoup-drawer-layer{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  background:rgba(0,0,0,.62);
+  backdrop-filter:blur(4px);
+}
+.bingoup-app .bingoup-drawer{
+  display:flex;
+  width:min(88vw,330px);
+  height:100%;
+  flex-direction:column;
+  overflow-y:auto;
+  border-right:1px solid var(--line);
+  background:linear-gradient(180deg,#0b0e13,#11161d);
+  padding:18px 14px max(18px,env(safe-area-inset-bottom));
+  box-shadow:24px 0 70px rgba(0,0,0,.42);
+}
+.bingoup-app .bingoup-drawer-head{
+  display:flex;
+  min-height:64px;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:0 8px;
+}
+.bingoup-app .bingoup-drawer-head img{
+  width:min(220px,68vw);
+  max-height:58px;
+  object-fit:contain;
+  object-position:left center;
+}
+.bingoup-app .bingoup-drawer-close{
+  display:grid;
+  width:42px;
+  height:42px;
+  flex:0 0 42px;
+  place-items:center;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:#171c23;
+  color:white;
+  font-size:28px;
+  line-height:1;
+}
+.bingoup-app .bingoup-drawer .bingoup-workspace-card{
+  margin-top:auto;
+}
+.bingoup-app .bingoup-stat{
+  min-width:0;
+}
+.bingoup-app .bingoup-stat > div:last-child{
+  min-width:0;
+}
+.bingoup-app .bingoup-stat strong,
+.bingoup-app .bingoup-stat small{
+  overflow-wrap:anywhere;
+}
+@media (max-width:1279px){
+  .bingoup-app .bingoup-main{
+    padding-top:24px;
+  }
+}
+@media (min-width:768px) and (max-width:1279px){
+  .bingoup-app .bingoup-main{
+    padding-inline:clamp(22px,4vw,46px);
+    padding-bottom:42px;
+  }
+  .bingoup-app .bingoup-page-head{
+    align-items:flex-end;
+    flex-direction:row;
+    flex-wrap:wrap;
+  }
+}
+@media (max-width:767px){
+  .bingoup-app .bingoup-mobile-nav{
+    position:fixed;
+    inset:auto 0 0;
+    z-index:50;
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    border-top:1px solid var(--line);
+    background:rgba(13,16,21,.98);
+    padding:7px 4px max(7px,env(safe-area-inset-bottom));
+    backdrop-filter:blur(16px);
+  }
+  .bingoup-app .bingoup-main{
+    padding:18px 13px calc(96px + env(safe-area-inset-bottom));
+  }
+  .bingoup-app .bingoup-topbar{
+    min-height:64px;
+    padding:8px 12px;
+  }
+  .bingoup-app .bingoup-phase{
+    display:none;
+  }
+  .bingoup-app .bingoup-top-actions{
+    gap:7px;
+  }
+  .bingoup-app .bingoup-top-actions button{
+    min-height:40px;
+    padding-inline:12px;
+  }
+  .bingoup-app .bingoup-page-head{
+    align-items:stretch;
+    flex-direction:column;
+    gap:16px;
+  }
+  .bingoup-app .bingoup-page-head > div:last-child{
+    width:100%;
+  }
+  .bingoup-app .bingoup-page-head > div:last-child > a{
+    flex:1 1 140px;
+  }
+  .bingoup-app .bingoup-page-head > div:last-child button{
+    width:100%;
+  }
+  .bingoup-app .bingoup-event-row{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .bingoup-app .bingoup-event-row > div:last-child{
+    display:grid;
+    width:100%;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .bingoup-app .bingoup-event-row > div:last-child a,
+  .bingoup-app .bingoup-event-row > div:last-child button{
+    width:100%;
+  }
+  .bingoup-app .bingoup-trust{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+}
+@media (max-width:420px){
+  .bingoup-app .bingoup-top-logo{
+    width:min(145px,38vw);
+  }
+  .bingoup-app .bingoup-menu-button{
+    width:38px;
+    height:38px;
+    flex-basis:38px;
+  }
+  .bingoup-app .bingoup-top-actions button{
+    padding-inline:10px;
+  }
+  .bingoup-app .bingoup-mobile-link{
+    font-size:9px;
+  }
+}
