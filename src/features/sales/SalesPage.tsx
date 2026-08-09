@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { normalizeMoneyInput, validateBuyer } from '@/domain/sales/validation'
 import { cancelSale, completeReservedSale, createCardSale, getSalesSummary, listEventSales, listSaleableCards, listSalesEvents, type SaleView, type SalesEventOption, type SalesSummary } from './salesService'
 import type { PhysicalCard, SaleStatus } from '@/types/database'
+import { EventFlowNav } from '@/components/events/EventFlowNav'
 
 const saleStatusLabel:Record<SaleStatus,string>={reserved:'Reservada',completed:'Concluída',canceled:'Cancelada'}
 
@@ -38,6 +39,7 @@ export function SalesPage(){
   if(!currentWorkspace)return null
   return <div className="space-y-6">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-semibold text-emerald-700">Operação</p><h1 className="mt-1 text-3xl font-black tracking-tight">Vendas</h1><p className="mt-2 text-sm text-slate-600">Venda ou reserve cartelas sem risco de duas pessoas registrarem a mesma unidade.</p></div>{paramEventId&&<Link to={`/eventos/${paramEventId}`}><Button variant="secondary">Voltar ao evento</Button></Link>}</div>
+    {paramEventId&&<EventFlowNav eventId={paramEventId} current="sales"/>}
     {notice&&<div className="rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{notice}</div>}{error&&<div className="rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-700">{error}</div>}
     <Card><div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]"><label className="text-sm font-semibold text-slate-700">Evento<Select className="mt-1" value={eventId} disabled={Boolean(paramEventId)} onChange={e=>{setEventId(e.target.value);setSelected([]);setPrice('')}}><option value="">Selecione…</option>{events.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</Select></label>{currentEvent&&<div className="self-end text-sm text-slate-500">Preço padrão: <strong>{money(currentEvent.settings.default_card_price,currentEvent.settings.currency)}</strong></div>}</div></Card>
     {!eventId?<Card>Crie ou selecione um evento para começar.</Card>:<>

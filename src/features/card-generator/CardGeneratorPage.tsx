@@ -16,6 +16,7 @@ import { getCardLayoutPreset } from '@/domain/cards/layouts'
 import { parseCardTemplateOptions } from '@/domain/cards/templateOptions'
 import type { BingoRuleSet, CardBatch, CardTemplate, EventWithSettings, GenerationUniquenessMode } from '@/types/database'
 import { cancelCardBatch, countGameDefinitions, createCardBatch, finalizeCardBatch, listCardBatches, loadExistingCompositionSignatures, loadExistingGameDefinitions, markCardBatchFailed, persistGeneratedCards } from './cardGenerationService'
+import { EventFlowNav } from '@/components/events/EventFlowNav'
 
 type Progress = { step: string; current: number; total: number } | null
 
@@ -56,6 +57,7 @@ export function CardGeneratorPage() {
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm font-bold text-emerald-700">Cartelas · motor de geração</p><h1 className="mt-1 text-3xl font-black">{event.name}</h1><p className="mt-2 text-sm text-slate-600">Gere lotes com controle de unicidade, 1 em 1, 2 em 1 ou 3 em 1 e repetição somente quando necessária.</p></div><div className="flex flex-wrap gap-2"><Link to={`/eventos/${eventId}/cartelas/configuracao`}><Button variant="secondary">Regras e layouts</Button></Link><Link to={`/eventos/${eventId}`}><Button variant="secondary">Evento</Button></Link></div></div>
     {notice && <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{notice}</div>}
     {error && <div className="rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>}
+    <EventFlowNav eventId={eventId} current="generate"/>
     {progress && <Card><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-black">{progress.step}</p><p className="text-xs text-slate-500">{progress.current.toLocaleString('pt-BR')} de {progress.total.toLocaleString('pt-BR')}</p></div><p className="text-lg font-black">{progress.total ? Math.round(progress.current / progress.total * 100) : 0}%</p></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-emerald-600 transition-all" style={{ width: `${progress.total ? progress.current / progress.total * 100 : 0}%` }} /></div></Card>}
     <GenerationForm rules={rules} templates={templates} usedByRule={usedByRule} workspaceId={currentWorkspace.id} eventId={eventId} eventName={event.name} disabled={busy} onBusy={setBusy} onProgress={setProgress} onError={setError} onDone={async message => { setNotice(message); setProgress(null); await load() }} />
     <BatchList eventId={eventId} batches={batches} busy={busy} onCancel={async batch => { setBusy(true); setError(null); try { await cancelCardBatch(batch.id, 'Cancelado pelo organizador.'); setNotice('Lote cancelado e suas cartelas parciais removidas.'); await load() } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível cancelar o lote.') } finally { setBusy(false) } }} />
@@ -90,7 +92,7 @@ function GenerationForm({ rules, templates, usedByRule, workspaceId, eventId, ev
     if (!rule || !template) { onError('Selecione uma regra e um layout compatível.'); return }
     const normalizedSeries = series.trim().toUpperCase()
     if (!/^[A-Z0-9][A-Z0-9_-]{0,19}$/.test(normalizedSeries)) { onError('A série deve ter de 1 a 20 caracteres, usando letras, números, _ ou -.'); return }
-    if (quantity < 1 || quantity > 1_000_000) { onError('Informe entre 1 e 1.000.000 de cartelas.'); return }
+    if (quantity < 1 || quantity > 10_000) { onError('Por segurança e desempenho, gere entre 1 e 10.000 cartelas por lote. Para quantidades maiores, crie lotes adicionais.'); return }
     if (needsControlled && mode === 'strict') { onError(`Essa quantidade ultrapassa o limite sem repetição. O máximo atual é ${formatBigInt(plan.strictCardLimit)} cartelas.`); return }
     if (mode === 'controlled' && !plan.canGenerateControlled) { onError(format === 1 ? 'Não foi possível montar o plano.' : `Mesmo com repetição controlada, o máximo atual é ${formatBigInt(plan.controlledCardLimit ?? 0n)} cartelas mantendo no máximo um jogo repetido por cartela.`); return }
 
@@ -135,7 +137,7 @@ function GenerationForm({ rules, templates, usedByRule, workspaceId, eventId, ev
       <label className="text-sm font-semibold">Formato<Select className="mt-1" value={format} onChange={e=>setFormat(Number(e.target.value) as 1|2|3)}><option value={1}>1 em 1</option><option value={2}>2 em 1</option><option value={3}>3 em 1</option></Select></label>
       <label className="text-sm font-semibold">Modelo da cartela<Select className="mt-1" value={template?.id ?? ''} onChange={e=>setTemplateId(e.target.value)}>{compatibleTemplates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</Select></label>
       <label className="text-sm font-semibold">Série<Input className="mt-1" maxLength={20} value={series} onChange={e=>setSeries(e.target.value.toUpperCase())}/></label>
-      <NumberField label="Quantidade de cartelas" value={quantity} set={setQuantity} min={1} max={1_000_000}/>
+      <NumberField label="Quantidade de cartelas" value={quantity} set={setQuantity} min={1} max={10_000}/>
       <NumberField label="Primeiro número" value={startNumber} set={setStartNumber} min={1}/>
       <NumberField label="Dígitos do código" value={padding} set={setPadding} min={1} max={12}/>
       <label className="text-sm font-semibold sm:col-span-2">Política de unicidade<Select className="mt-1" value={mode} onChange={e=>setMode(e.target.value as GenerationUniquenessMode)}><option value="strict">Sem repetir nenhum jogo</option><option value="controlled">Permitir repetição controlada se necessária</option></Select></label>
@@ -152,7 +154,7 @@ function TemplateActions({eventId,template,format}:{eventId:string;template:Card
   const preset=getCardLayoutPreset(template.layout_key,format)
   const wildcard=parseCardTemplateOptions(template.options).wildcard
   const labels={star:'Estrela',circle:'Bola',heart:'Coração',cross:'Símbolo',fire:'Fogueira',soccer:'Bola de futebol',custom:'Imagem personalizada',none:'Sem símbolo'} as const
-  return <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-950/25 p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-black">Personalização do modelo</p><p className="mt-1 text-xs text-slate-400">Coringa atual: <strong className="text-slate-200">{labels[wildcard?.kind??'star']}</strong>. Arte de fundo e coringa são configurados no próprio layout.</p></div><div className="flex flex-wrap gap-2">{preset&&<Button variant="secondary" onClick={()=>downloadLayoutGuidePng(preset.key,format,preset.gameAreas)}>Gerar gabarito PNG</Button>}<Link to={`/eventos/${eventId}/cartelas/configuracao?aba=layouts`}><Button variant="secondary">Arte e coringa</Button></Link></div></div></div>
+  return <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-950/25 p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-black">Personalização do modelo</p><p className="mt-1 text-xs text-slate-400">Coringa atual: <strong className="text-slate-200">{labels[wildcard?.kind??'star']}</strong>. Arte de fundo e coringa são configurados no próprio layout.</p></div><div className="flex flex-wrap gap-2">{preset&&<Button variant="secondary" onClick={()=>downloadLayoutGuidePng(preset.key,format,preset.gameAreas)}>Gerar gabarito PNG</Button>}<Link to={`/eventos/${eventId}/cartelas/configuracao?aba=layouts&editar=${template.id}`}><Button variant="secondary">Personalizar este modelo</Button></Link></div></div></div>
 }
 
 function BatchList({ eventId,batches,busy,onCancel }:{eventId:string;batches:CardBatch[];busy:boolean;onCancel:(batch:CardBatch)=>Promise<void>}) {

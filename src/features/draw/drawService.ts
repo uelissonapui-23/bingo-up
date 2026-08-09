@@ -64,3 +64,8 @@ export type WinnerCandidateView={id:string;physical_card_id:string;card_game_id:
 export async function refreshDrawProgress(sessionId:string){const {data,error}=await supabase.rpc('refresh_draw_progress',{target_session_id:sessionId});if(error)throw error;return data as {one_away:number;two_away:number;winners:number;evaluated_games:number}}
 export async function listDrawProgress(sessionId:string):Promise<DrawProgressRow[]>{const {data,error}=await supabase.from('game_progress').select('session_id,physical_card_id,card_game_id,position,matched_count,missing_count,is_winner,completed_at').eq('session_id',sessionId).order('missing_count').order('position');if(error)throw error;return (data??[]) as DrawProgressRow[]}
 export async function listWinnerCandidates(sessionId:string):Promise<WinnerCandidateView[]>{const {data,error}=await supabase.from('winner_candidates').select('id,physical_card_id,card_game_id,status,detected_at,physical_cards(code)').eq('session_id',sessionId).in('status',['detected','confirmed']).order('detected_at');if(error)throw error;const rows=(data??[]) as any[];const progress=await listDrawProgress(sessionId);return rows.map(row=>({...row,draw_session_games:{position:progress.find(p=>p.card_game_id===row.card_game_id)?.position??1}})) as WinnerCandidateView[]}
+
+export async function reopenEventForNextDraw(eventId:string){
+  const {error}=await supabase.rpc('reopen_event_for_next_draw',{target_event_id:eventId})
+  if(error)throw error
+}
