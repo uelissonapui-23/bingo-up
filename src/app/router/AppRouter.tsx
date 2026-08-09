@@ -18,6 +18,7 @@ import { EditEventPage } from '@/features/events/EditEventPage'
 import { CardConfigurationPage } from '@/features/card-config/CardConfigurationPage'
 import { CardGeneratorPage } from '@/features/card-generator/CardGeneratorPage'
 import { CardsPage } from '@/features/cards/CardsPage'
+import { CardsHubPage } from '@/features/cards/CardsHubPage'
 import { CardDetailPage } from '@/features/cards/CardDetailPage'
 import { BatchPrintPage } from '@/features/cards/BatchPrintPage'
 import { PublicCardPlaceholderPage } from '@/features/cards/PublicCardPlaceholderPage'
@@ -36,7 +37,7 @@ export function AppRouter() {
     <Route element={<RequireAuth/>}><Route path="/configurar-organizador" element={<div className="bingoup-app min-h-dvh p-4"><WorkspaceOnboardingPage/></div>}/><Route element={<RequireWorkspace/>}><Route element={<AppShell/>}>
       <Route index element={<DashboardPage/>}/>
       <Route path="eventos" element={<EventsPage/>}/><Route path="eventos/novo" element={<NewEventPage/>}/><Route path="eventos/:eventId" element={<EventDetailPage/>}/><Route path="eventos/:eventId/editar" element={<EditEventPage/>}/><Route path="eventos/:eventId/cartelas/configuracao" element={<CardConfigurationPage/>}/><Route path="eventos/:eventId/cartelas/gerar" element={<CardGeneratorPage/>}/><Route path="eventos/:eventId/cartelas" element={<CardsPage/>}/><Route path="eventos/:eventId/cartelas/:cardId" element={<CardDetailPage/>}/><Route path="eventos/:eventId/cartelas/lote/:batchId/imprimir" element={<BatchPrintPage/>}/><Route path="eventos/:eventId/vendas" element={<SalesPage/>}/><Route path="eventos/:eventId/sorteio" element={<DrawPage/>}/>
-      <Route path="cartelas" element={<ModulePlaceholderPage title="Cartelas"/>}/><Route path="vendas" element={<SalesPage/>}/><Route path="sorteio" element={<DrawHomePage/>}/><Route path="historico" element={<HistoryPage/>}/><Route path="eventos/:eventId/historico" element={<EventHistoryPage/>}/><Route path="configuracoes" element={<AccountPage/>}/><Route path="configuracoes/sistema" element={<SystemSettingsPage/>}/>
+      <Route path="cartelas" element={<CardsHubPage/>}/><Route path="vendas" element={<SalesPage/>}/><Route path="sorteio" element={<DrawHomePage/>}/><Route path="historico" element={<HistoryPage/>}/><Route path="eventos/:eventId/historico" element={<EventHistoryPage/>}/><Route path="configuracoes" element={<AccountPage/>}/><Route path="configuracoes/sistema" element={<SystemSettingsPage/>}/>
     </Route></Route></Route>
     <Route path="*" element={<NotFoundPage/>}/>
   </Routes>
