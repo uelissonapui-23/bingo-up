@@ -15,7 +15,6 @@ import type { BingoRuleSet, CardBatch, CardTemplate, EventWithSettings, Generati
 import { cancelCardBatch, countGameDefinitions, createCardBatch, finalizeCardBatch, listCardBatches, loadExistingCompositionSignatures, loadExistingGameDefinitions, markCardBatchFailed, persistGeneratedCards } from './cardGenerationService'
 
 type Progress = { step: string; current: number; total: number } | null
-const MAX_CARDS_PER_BROWSER_BATCH = 10_000
 
 export function CardGeneratorPage() {
   const { eventId } = useParams()
@@ -88,7 +87,7 @@ function GenerationForm({ rules, templates, usedByRule, workspaceId, eventId, ev
     if (!rule || !template) { onError('Selecione uma regra e um layout compatível.'); return }
     const normalizedSeries = series.trim().toUpperCase()
     if (!/^[A-Z0-9][A-Z0-9_-]{0,19}$/.test(normalizedSeries)) { onError('A série deve ter de 1 a 20 caracteres, usando letras, números, _ ou -.'); return }
-    if (quantity < 1 || quantity > MAX_CARDS_PER_BROWSER_BATCH) { onError(`Por segurança deste dispositivo, gere entre 1 e ${MAX_CARDS_PER_BROWSER_BATCH.toLocaleString('pt-BR')} cartelas por lote. Você pode criar vários lotes; a unicidade continua sendo conferida entre todos eles.`); return }
+    if (quantity < 1 || quantity > 1_000_000) { onError('Informe entre 1 e 1.000.000 de cartelas.'); return }
     if (needsControlled && mode === 'strict') { onError(`Essa quantidade ultrapassa o limite sem repetição. O máximo atual é ${formatBigInt(plan.strictCardLimit)} cartelas.`); return }
     if (mode === 'controlled' && !plan.canGenerateControlled) { onError(format === 1 ? 'Não foi possível montar o plano.' : `Mesmo com repetição controlada, o máximo atual é ${formatBigInt(plan.controlledCardLimit ?? 0n)} cartelas mantendo no máximo um jogo repetido por cartela.`); return }
 
@@ -133,15 +132,15 @@ function GenerationForm({ rules, templates, usedByRule, workspaceId, eventId, ev
       <label className="text-sm font-semibold">Formato<Select className="mt-1" value={format} onChange={e=>setFormat(Number(e.target.value) as 1|2|3)}><option value={1}>1 em 1</option><option value={2}>2 em 1</option><option value={3}>3 em 1</option></Select></label>
       <label className="text-sm font-semibold">Layout<Select className="mt-1" value={template?.id ?? ''} onChange={e=>setTemplateId(e.target.value)}>{compatibleTemplates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</Select></label>
       <label className="text-sm font-semibold">Série<Input className="mt-1" maxLength={20} value={series} onChange={e=>setSeries(e.target.value.toUpperCase())}/></label>
-      <NumberField label="Quantidade de cartelas" value={quantity} set={setQuantity} min={1} max={MAX_CARDS_PER_BROWSER_BATCH}/>
+      <NumberField label="Quantidade de cartelas" value={quantity} set={setQuantity} min={1} max={1_000_000}/>
       <NumberField label="Primeiro número" value={startNumber} set={setStartNumber} min={1}/>
       <NumberField label="Dígitos do código" value={padding} set={setPadding} min={1} max={12}/>
       <label className="text-sm font-semibold sm:col-span-2">Política de unicidade<Select className="mt-1" value={mode} onChange={e=>setMode(e.target.value as GenerationUniquenessMode)}><option value="strict">Sem repetir nenhum jogo</option><option value="controlled">Permitir repetição controlada se necessária</option></Select></label>
     </div>
     <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><Metric label="Jogos únicos matemáticos" value={formatBigInt(capacity)}/><Metric label="Jogos únicos já emitidos" value={formatBigInt(used)}/><Metric label={`Máximo ${format} em 1 sem repetir`} value={formatBigInt(plan.strictCardLimit)}/><Metric label="Jogos que este lote repete" value={formatBigInt(plan.repeatedGamesRequired)} tone={plan.repeatedGamesRequired>0n?'warning':'normal'}/></div>
     {needsControlled && <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-black">A quantidade solicitada excede o universo ainda disponível sem repetição.</p><p className="mt-1">No modo controlado, {format===1?'repetições integrais só aparecem depois de esgotados os jogos inéditos.':`cada cartela terá no máximo 1 jogo reaproveitado e ${format-1} jogo${format-1>1?'s':''} inédito${format-1>1?'s':''}.`} {format>1&&plan.controlledCardLimit!==null&&<>O limite mantendo essa regra é {formatBigInt(plan.controlledCardLimit)} cartelas.</>}</p></div>}
-    <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-slate-500">A prévia acompanha formato, layout, série, numeração, orientação e QR. Limite operacional: 10.000 cartelas por lote para evitar travamentos no navegador; a capacidade matemática continua sendo exibida acima.</p><Button disabled={disabled||!template} onClick={()=>void generate()}>{disabled?'Gerando…':'Gerar lote'}</Button></div></div>
-    <div className="xl:sticky xl:top-24 xl:self-start"><div className="mb-3"><p className="text-xs font-black uppercase tracking-[.16em] text-red-400">Prévia da cartela</p><p className="mt-1 text-sm text-slate-400">Exemplo da primeira cartela deste lote.</p></div>{template?<CardTemplatePreview format={format} layoutKey={template.layout_key} bannerPosition={template.banner_position} eventName={eventName} seriesCode={series.trim().toUpperCase() || 'A'} sequenceNumber={startNumber} codePadding={padding} rule={rule} {...previewPropsFromTemplate(template)}/>:<div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">Selecione um layout para visualizar.</div>}</div></div>
+    <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-slate-500">A prévia acompanha formato, layout, série, numeração, orientação e QR do modelo selecionado.</p><Button disabled={disabled||!template} onClick={()=>void generate()}>{disabled?'Gerando…':'Gerar lote'}</Button></div></div>
+    <div className="xl:sticky xl:top-24 xl:self-start"><div className="mb-3"><p className="text-xs font-black uppercase tracking-[.16em] text-red-400">Prévia da cartela</p><p className="mt-1 text-sm text-slate-400">Exemplo da primeira cartela deste lote.</p></div>{template?<CardTemplatePreview format={format} layoutKey={template.layout_key} eventName={eventName} seriesCode={series.trim().toUpperCase() || 'A'} sequenceNumber={startNumber} codePadding={padding} rule={rule} {...previewPropsFromTemplate(template)}/>:<div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">Selecione um layout para visualizar.</div>}</div></div>
   </Card>
 }
 
