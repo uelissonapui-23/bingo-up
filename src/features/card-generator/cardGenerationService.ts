@@ -94,3 +94,9 @@ export async function cancelCardBatch(batchId: string, reason?: string) {
   const { error } = await supabase.rpc('cancel_card_batch', { target_batch_id: batchId, reason: reason ?? null })
   if (error) throw error
 }
+
+export async function deleteUnusedCardBatch(batchId: string) {
+  const { data, error } = await supabase.rpc('delete_unused_card_batch', { target_batch_id: batchId })
+  if (error) throw error
+  return data as { deleted_cards: number; deleted_orphan_games: number }
+}
