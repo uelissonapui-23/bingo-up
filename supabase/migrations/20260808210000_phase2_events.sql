@@ -19,7 +19,7 @@ create table public.events (
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
   name text not null check (char_length(trim(name)) between 2 and 160),
   slug text not null check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
-  public_code text not null unique default upper(substr(encode(gen_random_bytes(8), 'hex'), 1, 12)),
+  public_code text not null unique default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12)),
   description text,
   location_name text,
   address text,
