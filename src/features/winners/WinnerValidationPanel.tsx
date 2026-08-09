@@ -1,0 +1,30 @@
+import {useCallback,useEffect,useState} from 'react'
+import {Button} from '@/components/ui/Button'
+import {Card} from '@/components/ui/Card'
+import {Input} from '@/components/ui/Input'
+import type {WinnerCandidateView} from '@/features/draw/drawService'
+import {confirmWinner,dismissWinner,findCandidateForCard,getCandidateCheck,listConfirmedWinners,type WinnerCheck} from './winnerService'
+
+export function WinnerValidationPanel({sessionId,candidates,onChanged}:{sessionId:string;candidates:WinnerCandidateView[];onChanged:()=>void}){
+ const [code,setCode]=useState('');const [check,setCheck]=useState<WinnerCheck|null>(null);const [confirmed,setConfirmed]=useState<any[]>([]);const [busy,setBusy]=useState(false);const [message,setMessage]=useState<string|null>(null)
+ const reloadConfirmed=useCallback(async()=>{setConfirmed(await listConfirmedWinners(sessionId))},[sessionId])
+ useEffect(()=>{void reloadConfirmed()},[reloadConfirmed])
+ async function openCandidate(id:string){setBusy(true);setMessage(null);try{setCheck(await getCandidateCheck(id))}catch(e){setMessage(e instanceof Error?e.message:'Não foi possível conferir.')}finally{setBusy(false)}}
+ async function search(){setBusy(true);setMessage(null);setCheck(null);try{const rows=await findCandidateForCard(sessionId,code);if(!rows.length){setMessage('Esta cartela não consta entre as cartelas premiadas detectadas nesta rodada.');return}const valid=rows.find(r=>r.status==='detected'||r.status==='confirmed')??rows[0];setCheck(valid??null)}catch(e){setMessage(e instanceof Error?e.message:'Não foi possível localizar a cartela.')}finally{setBusy(false)}}
+ async function confirm(){if(!check)return;setBusy(true);try{await confirmWinner(check.id);setMessage(`Bingo confirmado: ${check.card.code}, jogo ${check.game.position}.`);setCheck(await getCandidateCheck(check.id));await reloadConfirmed();onChanged()}catch(e){setMessage(e instanceof Error?e.message:'Não foi possível confirmar.')}finally{setBusy(false)}}
+ async function dismiss(){if(!check)return;const reason=prompt('Informe o motivo para rejeitar esta conferência:');if(!reason?.trim())return;setBusy(true);try{await dismissWinner(check.id,reason);setMessage('Conferência rejeitada e registrada no histórico.');setCheck(await getCandidateCheck(check.id));onChanged()}catch(e){setMessage(e instanceof Error?e.message:'Não foi possível rejeitar.')}finally{setBusy(false)}}
+ return <Card><h2 className="text-lg font-black">Conferência e premiação</h2><p className="mt-1 text-sm text-slate-600">O sistema já detecta os jogos premiados. Compare o código apresentado com a lista e confirme somente após a conferência visual.</p>
+  {candidates.filter(c=>c.status==='detected').length>0&&<div className="mt-4 rounded-2xl bg-amber-50 p-3"><p className="text-xs font-bold uppercase text-amber-800">Aguardando conferência</p><div className="mt-2 flex flex-wrap gap-2">{candidates.filter(c=>c.status==='detected').map(c=><button key={c.id} disabled={busy} onClick={()=>void openCandidate(c.id)} className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-bold">{c.physical_cards?.code} · Jogo {c.draw_session_games?.position??1}</button>)}</div></div>}
+  <div className="mt-4 flex gap-2"><Input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} onKeyDown={e=>{if(e.key==='Enter')void search()}} placeholder="Código da cartela, ex.: A-000125"/><Button disabled={busy||!code.trim()} onClick={()=>void search()}>Conferir</Button></div>
+  {message&&<div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-700">{message}</div>}
+  {check&&<div className="mt-4 rounded-2xl border border-slate-200 p-4"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xl font-black">{check.card.code} · Jogo {check.game.position}</p><p className="text-sm text-slate-500">Status: {check.status}</p></div><span className={`rounded-full px-3 py-1 text-xs font-black ${check.progress.is_winner?'bg-emerald-100 text-emerald-800':'bg-red-100 text-red-700'}`}>{check.progress.is_winner?'PADRÃO COMPLETO':'NÃO COMPLETO'}</span></div>
+   <div className="mt-3 grid gap-2 sm:grid-cols-3"><Mini label="Cartela" value={check.card.status==='sold'?'Vendida':check.card.status}/><Mini label="Faltam" value={String(check.progress.missing_count)}/><Mini label="Bola decisiva" value={check.trigger?String(check.trigger.number):'—'}/></div>
+   {check.sale?.buyer_name&&<p className="mt-3 text-sm"><b>Comprador:</b> {check.sale.buyer_name}{check.sale.buyer_phone?` · ${check.sale.buyer_phone}`:''}</p>}
+   <GameGrid cells={check.game.definition?.cells??[]}/>
+   {check.status==='detected'&&<div className="mt-4 grid gap-2 sm:grid-cols-2"><Button disabled={busy||!check.progress.is_winner} onClick={()=>void confirm()}>Confirmar vencedor</Button><Button variant="secondary" disabled={busy} onClick={()=>void dismiss()}>Rejeitar conferência</Button></div>}
+  </div>}
+  {confirmed.length>0&&<div className="mt-5"><p className="text-sm font-black">Vencedores confirmados</p><div className="mt-2 space-y-2">{confirmed.map((w:any)=><div key={w.id} className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-900">✓ {w.physical_cards?.code??'Cartela'} · Jogo {w.card_games?.position??1} · {new Date(w.confirmed_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>)}</div></div>}
+ </Card>
+}
+function Mini({label,value}:{label:string;value:string}){return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[11px] font-bold uppercase text-slate-500">{label}</p><p className="font-black">{value}</p></div>}
+function GameGrid({cells}:{cells:Array<number|null>}){return <div className="mt-4 grid grid-cols-5 gap-1">{['B','I','N','G','O'].map(x=><b key={x} className="py-1 text-center text-xs">{x}</b>)}{cells.map((n,i)=><span key={i} className="rounded bg-slate-100 py-2 text-center text-xs font-black">{n===null?'★':String(n).padStart(2,'0')}</span>)}</div>}

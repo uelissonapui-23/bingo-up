@@ -1,0 +1,48 @@
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { useWorkspace } from '@/app/providers/WorkspaceProvider'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { Select } from '@/components/ui/Select'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { getEvent, getEventBannerUrl, updateEventSettings, updateEventStatus, uploadEventBanner } from './eventService'
+import { eventStatusLabel, eventStatusTone, formatEventDate } from './eventUtils'
+import type { EventSettings, EventStatus, EventWithSettings } from '@/types/database'
+
+const statuses: EventStatus[] = ['draft','sales_open','sales_paused','ready','drawing','paused','finished','canceled']
+
+export function EventDetailPage(){
+  const {eventId}=useParams(); const {currentWorkspace}=useWorkspace()
+  const [event,setEvent]=useState<EventWithSettings|null>(null); const [bannerUrl,setBannerUrl]=useState<string|null>(null)
+  const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState<string|null>(null);const [notice,setNotice]=useState<string|null>(null)
+  const load=useCallback(async()=>{if(!currentWorkspace||!eventId)return;setLoading(true);setError(null);try{const value=await getEvent(currentWorkspace.id,eventId);setEvent(value);if(value.banner_path){try{setBannerUrl(await getEventBannerUrl(value.banner_path))}catch{setBannerUrl(null)}}else setBannerUrl(null)}catch{setError('Evento não encontrado ou você não possui acesso.')}finally{setLoading(false)}},[currentWorkspace,eventId])
+  useEffect(()=>{void load()},[load])
+
+  async function changeStatus(status:EventStatus){if(!currentWorkspace||!eventId)return;setSaving(true);setError(null);try{await updateEventStatus(currentWorkspace.id,eventId,status);setNotice('Status atualizado.');await load()}catch{setError('Não foi possível atualizar o status.')}finally{setSaving(false)}}
+  async function saveSettings(patch:Partial<EventSettings>){if(!currentWorkspace||!eventId)return;setSaving(true);setError(null);try{await updateEventSettings(currentWorkspace.id,eventId,patch);setNotice('Configurações salvas.');await load()}catch{setError('Não foi possível salvar as configurações.')}finally{setSaving(false)}}
+  async function banner(file?:File){if(!file||!currentWorkspace||!eventId)return;if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5*1024*1024){setError('Use JPG, PNG ou WEBP de até 5 MB.');return}setSaving(true);try{await uploadEventBanner(currentWorkspace.id,eventId,file);setNotice('Banner atualizado.');await load()}catch{setError('Não foi possível enviar o banner.')}finally{setSaving(false)}}
+
+  if(loading)return <Card>Carregando evento…</Card>
+  if(error&&!event)return <div className="space-y-4"><div className="rounded-2xl bg-red-50 p-4 text-red-700">{error}</div><Link to="/eventos"><Button variant="secondary">Voltar</Button></Link></div>
+  if(!event)return null
+
+  return <div className="space-y-6">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold text-emerald-700">Evento</p><StatusBadge tone={eventStatusTone(event.status)}>{eventStatusLabel[event.status]}</StatusBadge></div><h1 className="mt-2 text-3xl font-black tracking-tight">{event.name}</h1><p className="mt-2 text-sm text-slate-600">{formatEventDate(event.starts_at)} · Código público {event.public_code}</p></div><div className="flex gap-2"><Link to="/eventos"><Button variant="secondary">Voltar</Button></Link><Link to={`/eventos/${event.id}/editar`}><Button>Editar</Button></Link></div></div>
+    {notice&&<div className="rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{notice}</div>}{error&&<div className="rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-700">{error}</div>}
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,.7fr)]">
+      <div className="space-y-5">
+        <Card><h2 className="text-lg font-black">Visão geral</h2><div className="mt-4 grid gap-4 sm:grid-cols-2"><Info label="Local" value={event.location_name||'Não definido'}/><Info label="Endereço" value={event.address||'Não definido'}/><Info label="Início" value={formatEventDate(event.starts_at)}/><Info label="Término" value={formatEventDate(event.ends_at)}/><Info label="Abertura das vendas" value={formatEventDate(event.sales_open_at)}/><Info label="Fechamento das vendas" value={formatEventDate(event.sales_close_at)}/></div>{event.description&&<p className="mt-5 whitespace-pre-wrap text-sm text-slate-600">{event.description}</p>}</Card>
+        <Card><h2 className="text-lg font-black">Banner do evento e das cartelas</h2><p className="mt-1 text-sm text-slate-600">Essa arte poderá ser reutilizada pelos templates de cartela. A grade dos números ficará separada do banner.</p>{bannerUrl?<img src={bannerUrl} alt="Banner do evento" className="mt-4 max-h-64 w-full rounded-2xl border border-slate-200 object-contain bg-slate-50"/>:<div className="mt-4 grid min-h-40 place-items-center rounded-2xl border border-dashed border-slate-300 text-sm text-slate-500">Nenhum banner enviado</div>}<label className="mt-4 inline-flex cursor-pointer items-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50"><input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={saving} onChange={e=>void banner(e.target.files?.[0])}/>Selecionar imagem</label></Card>
+        <Card><h2 className="text-lg font-black">Preparação dos próximos módulos</h2><p className="mt-2 text-sm text-slate-600">O evento já possui identidade própria para receber regras, lotes de cartelas, vendas, sessões de sorteio, candidatos a prêmio e painel público sem misturar dados com outros eventos.</p><div className="mt-4 grid gap-3 sm:grid-cols-2"><Link to={`/eventos/${event.id}/cartelas/configuracao`} className="block"><Future title="Regras e templates"/></Link><Link to={`/eventos/${event.id}/cartelas/gerar`} className="block"><Future title="Gerador de cartelas"/></Link><Link to={`/eventos/${event.id}/cartelas`} className="block"><Future title="Cartelas e impressão"/></Link><Link to={`/eventos/${event.id}/vendas`} className="block"><Future title="Vendas"/></Link><Link to={`/eventos/${event.id}/sorteio`} className="block"><Future title="Sorteio"/></Link><Future title="Painel público"/></div></Card>
+      </div>
+      <div className="space-y-5">
+        <Card><h2 className="text-lg font-black">Operação</h2><label className="mt-4 block text-sm font-semibold text-slate-700">Status do evento<Select className="mt-1" value={event.status} disabled={saving||event.status==='archived'} onChange={e=>void changeStatus(e.target.value as EventStatus)}>{statuses.map(s=><option key={s} value={s}>{eventStatusLabel[s]}</option>)}</Select></label><p className="mt-3 text-xs text-slate-500">O sorteio futuro fará transições críticas automaticamente e registrará auditoria.</p></Card>
+        <Card><h2 className="text-lg font-black">Venda e compradores</h2><Toggle label="Exigir nome do comprador" checked={event.settings.require_buyer_name} disabled={saving} onChange={v=>void saveSettings({require_buyer_name:v})}/><Toggle label="Exigir telefone" checked={event.settings.require_buyer_phone} disabled={saving} onChange={v=>void saveSettings({require_buyer_phone:v})}/><Toggle label="Exigir e-mail" checked={event.settings.require_buyer_email} disabled={saving} onChange={v=>void saveSettings({require_buyer_email:v})}/><Toggle label="Permitir reservas" checked={event.settings.allow_reservations} disabled={saving} onChange={v=>void saveSettings({allow_reservations:v})}/></Card>
+        <Card><h2 className="text-lg font-black">Painel público</h2><Toggle label="Mostrar último número" checked={event.settings.public_panel_show_last_number} disabled={saving} onChange={v=>void saveSettings({public_panel_show_last_number:v})}/><Toggle label="Mostrar números sorteados" checked={event.settings.public_panel_show_called_numbers} disabled={saving} onChange={v=>void saveSettings({public_panel_show_called_numbers:v})}/><Toggle label="Mostrar andamento" checked={event.settings.public_panel_show_progress} disabled={saving} onChange={v=>void saveSettings({public_panel_show_progress:v})}/><Toggle label="Mostrar jogos próximos" checked={event.settings.public_panel_show_near_winners} disabled={saving} onChange={v=>void saveSettings({public_panel_show_near_winners:v})}/></Card>
+      </div>
+    </div>
+  </div>
+}
+function Info({label,value}:{label:string;value:string}){return <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-sm font-medium text-slate-800">{value}</p></div>}
+function Toggle({label,checked,onChange,disabled}:{label:string;checked:boolean;onChange:(v:boolean)=>void;disabled:boolean}){return <label className="mt-3 flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-3 text-sm font-medium"><span>{label}</span><input type="checkbox" checked={checked} disabled={disabled} onChange={e=>onChange(e.target.checked)}/></label>}
+function Future({title}:{title:string}){return <div className="rounded-2xl bg-slate-50 p-4"><p className="font-semibold">{title}</p><p className="mt-1 text-xs text-slate-500">Estrutura vinculada ao evento atual.</p></div>}
