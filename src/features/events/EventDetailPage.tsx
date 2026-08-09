@@ -27,7 +27,7 @@ export function EventDetailPage(){
   if(!event)return null
 
   return <div className="space-y-6">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold text-emerald-700">Evento</p><StatusBadge tone={eventStatusTone(event.status)}>{eventStatusLabel[event.status]}</StatusBadge></div><h1 className="mt-2 text-3xl font-black tracking-tight">{event.name}</h1><p className="mt-2 text-sm text-slate-600">{formatEventDate(event.starts_at)} · Código público {event.public_code}</p></div><div className="flex gap-2"><Link to="/eventos"><Button variant="secondary">Voltar</Button></Link><Link to={`/eventos/${event.id}/editar`}><Button>Editar</Button></Link></div></div>
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold text-emerald-700">Evento</p><StatusBadge tone={eventStatusTone(event.status)}>{eventStatusLabel[event.status]}</StatusBadge></div><h1 className="mt-2 text-3xl font-black tracking-tight">{event.name}</h1><p className="mt-2 text-sm text-slate-600">{formatEventDate(event.starts_at)} · Código público {event.public_code}</p></div><div className="flex flex-wrap gap-2"><Link to="/eventos"><Button variant="secondary">Voltar</Button></Link><Link to={`/eventos/${event.id}/editar`}><Button>Editar</Button></Link></div></div>
     {notice&&<div className="rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{notice}</div>}{error&&<div className="rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-700">{error}</div>}
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,.7fr)]">
       <div className="space-y-5">
@@ -43,6 +43,6 @@ export function EventDetailPage(){
     </div>
   </div>
 }
-function Info({label,value}:{label:string;value:string}){return <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-sm font-medium text-slate-800">{value}</p></div>}
+function Info({label,value}:{label:string;value:string}){return <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 break-words text-sm font-medium text-slate-800">{value}</p></div>}
 function Toggle({label,checked,onChange,disabled}:{label:string;checked:boolean;onChange:(v:boolean)=>void;disabled:boolean}){return <label className="mt-3 flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-3 text-sm font-medium"><span>{label}</span><input type="checkbox" checked={checked} disabled={disabled} onChange={e=>onChange(e.target.checked)}/></label>}
 function Future({title}:{title:string}){return <div className="rounded-2xl bg-slate-50 p-4"><p className="font-semibold">{title}</p><p className="mt-1 text-xs text-slate-500">Estrutura vinculada ao evento atual.</p></div>}

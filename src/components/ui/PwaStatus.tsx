@@ -26,9 +26,9 @@ export function PwaStatus() {
   }
 
   if (!installPrompt && !update && !offlineReady) return null
-  return <div className="fixed bottom-20 right-4 z-50 w-[min(92vw,390px)] space-y-2 lg:bottom-4">
+  return <div className="fixed inset-x-3 bottom-20 z-50 mx-auto w-auto max-w-[390px] space-y-2 sm:inset-x-auto sm:right-4 sm:mx-0 sm:w-[min(92vw,390px)] lg:bottom-4">
     {update && <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xl"><p className="font-bold">Nova versão disponível</p><p className="mt-1 text-sm text-slate-600">Atualize quando não estiver no meio de uma operação crítica.</p><Button className="mt-3 w-full" onClick={()=>void applyPwaUpdate()}>Atualizar aplicativo</Button></div>}
-    {installPrompt && <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xl"><p className="font-bold">Instalar Bingo PWA</p><p className="mt-1 text-sm text-slate-600">Use como aplicativo no dispositivo, sem depender de uma aba aberta.</p><Button className="mt-3 w-full" variant="secondary" onClick={()=>void install()}>Instalar</Button></div>}
+    {installPrompt && <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xl"><p className="font-bold">Instalar BINGOUP</p><p className="mt-1 text-sm text-slate-600">Use como aplicativo no dispositivo, sem depender de uma aba aberta.</p><Button className="mt-3 w-full" variant="secondary" onClick={()=>void install()}>Instalar</Button></div>}
     {offlineReady && <div className="rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white shadow-xl">Aplicativo preparado para abrir mesmo sem conexão.</div>}
   </div>
 }

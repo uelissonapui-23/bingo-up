@@ -3,6 +3,7 @@ import type { BingoEvent, EventSettings, PhysicalCard, Sale, SaleItem, SaleStatu
 
 export type SalesEventOption=Pick<BingoEvent,'id'|'name'|'status'|'starts_at'> & {settings:Pick<EventSettings,'currency'|'default_card_price'|'allow_reservations'|'require_buyer_name'|'require_buyer_phone'|'require_buyer_email'|'reservation_minutes'>}
 export type SaleView=Sale&{items:Array<SaleItem&{card:Pick<PhysicalCard,'id'|'code'|'sequence_number'|'status'>}>}
+export type SalesSummary={available:number;reserved:number;sold:number;canceled:number;void:number;totalCards:number;completedAmount:number;completedSales:number}
 
 export async function listSalesEvents(workspaceId:string){
   const {data,error}=await supabase.from('events').select('id,name,status,starts_at,event_settings!inner(currency,default_card_price,allow_reservations,require_buyer_name,require_buyer_phone,require_buyer_email,reservation_minutes)').eq('workspace_id',workspaceId).neq('status','archived').order('created_at',{ascending:false})
@@ -21,7 +22,7 @@ export async function listSaleableCards(workspaceId:string,eventId:string,filter
   const {data,error}=await q;if(error)throw error;return (data??[]) as PhysicalCard[]
 }
 
-export async function getSalesSummary(workspaceId:string,eventId:string){
+export async function getSalesSummary(workspaceId:string,eventId:string):Promise<SalesSummary>{
   await expireReservations(eventId)
   const [{data:cards,error:ce},{data:sales,error:se}]=await Promise.all([
     supabase.from('physical_cards').select('status').eq('workspace_id',workspaceId).eq('event_id',eventId),

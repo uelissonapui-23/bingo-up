@@ -42,17 +42,17 @@ export function CardTemplatePreview({
   )
   const games = Array.from({ length: format }, (_, index) => <MiniGame key={index} index={index + 1} rule={rule} />)
   const horizontal = layoutKey.includes('horizontal')
-  const gridClass = horizontal ? (format === 2 ? 'grid gap-2 sm:grid-cols-2' : 'grid gap-2 sm:grid-cols-3') : 'grid gap-2'
+  const gridClass = horizontal ? (format === 2 ? 'grid gap-2 min-[520px]:grid-cols-2' : 'grid gap-2 min-[680px]:grid-cols-3') : 'grid gap-2'
   const oneTwo = layoutKey === 'triple_one_two'
   return (
     <div className="rounded-3xl border border-slate-700 bg-slate-950/65 p-3">
       <div className={`mx-auto rounded-2xl border border-slate-300 bg-white p-3 text-slate-950 shadow-2xl ${orientation === 'landscape' ? 'max-w-3xl' : 'max-w-xl'}`}>
         {bannerPosition === 'top' && banner}
-        <div className={`my-3 ${oneTwo ? 'grid grid-cols-2 gap-2' : gridClass}`}>
-          {oneTwo ? <><div className="col-span-2">{games[0]}</div>{games.slice(1)}</> : games}
+        <div className={`my-3 ${oneTwo ? 'grid gap-2 min-[520px]:grid-cols-2' : gridClass}`}>
+          {oneTwo ? <><div className="min-[520px]:col-span-2">{games[0]}</div>{games.slice(1)}</> : games}
         </div>
         {bannerPosition === 'bottom' && banner}
-        <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-200 pt-2 text-[10px] font-bold text-slate-600">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-2 text-[10px] font-bold text-slate-600">
           <span>{cardCode}{showSeries ? ` · Série ${seriesCode || 'A'}` : ''}</span>
           {showQrCode && <span className="grid h-9 w-9 place-items-center rounded border border-slate-300 bg-slate-50 text-[8px] font-black">QR</span>}
         </div>

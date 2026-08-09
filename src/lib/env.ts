@@ -4,7 +4,7 @@ const envSchema = z.object({
   VITE_SUPABASE_URL: z.string().url().optional(),
   VITE_SUPABASE_PUBLISHABLE_KEY: z.string().min(10).optional(),
   VITE_APP_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
-  VITE_APP_NAME: z.string().min(1).default('Bingo PWA')
+  VITE_APP_NAME: z.string().min(1).default('BINGOUP')
 })
 
 export type RuntimeConfig = {
@@ -20,7 +20,7 @@ export function getRuntimeConfig(): RuntimeConfig {
   if (!parsed.success) {
     console.error('Variáveis de ambiente inválidas.', parsed.error.flatten())
     return {
-      appName: 'Bingo PWA',
+      appName: 'BINGOUP',
       environment: 'development',
       supabaseConfigured: false
     }
