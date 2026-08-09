@@ -15,8 +15,6 @@ import { downloadLayoutGuidePng, optimizeArtwork, optimizeWildcard } from '@/dom
 import { parseCardTemplateOptions, type ArtworkQuality, type CardTemplateOptions, type WildcardKind } from '@/domain/cards/templateOptions'
 import { createCardTemplate, createRuleSet, ensureCardConfigDefaults, getCardAssetUrl, listCardTemplates, listRuleSets, setDefaultRule, setDefaultTemplate, toggleRule, toggleTemplate, updateCardTemplate } from './cardConfigService'
 import type { BingoEvent, BingoRuleSet, CardTemplate, EventWithSettings } from '@/types/database'
-import { EventFlowNav } from '@/components/events/EventFlowNav'
-
 type Tab='rules'|'templates'
 const STANDARD_COLUMNS:ColumnDefinition[]=[{label:'B',min:1,max:15,count:5},{label:'I',min:16,max:30,count:5},{label:'N',min:31,max:45,count:4},{label:'G',min:46,max:60,count:5},{label:'O',min:61,max:75,count:5}]
 const DEFAULT_PATTERNS=[{code:'one_line',name:'1 linha',kind:'line'},{code:'two_lines',name:'2 linhas',kind:'two_lines'},{code:'full_card',name:'Cartela cheia',kind:'full_card'}]
@@ -30,7 +28,6 @@ export function CardConfigurationPage(){
  if(!event||!currentWorkspace||!eventId)return <Card><p className="text-red-700">{error??'Evento não encontrado.'}</p></Card>
  return <div className="space-y-6"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm font-bold text-emerald-700">Cartelas · configuração</p><h1 className="mt-1 text-3xl font-black">{event.name}</h1><p className="mt-2 text-sm text-slate-600">Defina a matemática do bingo e os layouts físicos antes da geração.</p></div><Link to={`/eventos/${eventId}`}><Button variant="secondary">Voltar ao evento</Button></Link></div>
  {notice&&<div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{notice}</div>}{error&&<div className="rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>}
- <EventFlowNav eventId={eventId} current="config"/>
  <div className="flex gap-2 rounded-2xl bg-slate-100 p-1"><button onClick={()=>setTab('rules')} className={`flex-1 rounded-xl px-4 py-2 text-sm font-bold ${tab==='rules'?'bg-white shadow-sm':'text-slate-600'}`}>Regras do bingo</button><button onClick={()=>setTab('templates')} className={`flex-1 rounded-xl px-4 py-2 text-sm font-bold ${tab==='templates'?'bg-white shadow-sm':'text-slate-600'}`}>Layouts das cartelas</button></div>
  {tab==='rules'?<RulesSection rules={rules} workspaceId={currentWorkspace.id} eventId={eventId} reload={load} notify={setNotice} fail={setError}/>:<TemplatesSection templates={templates} workspaceId={currentWorkspace.id} eventId={eventId} event={event} initialEditId={searchParams.get('editar')} reload={load} notify={setNotice} fail={setError}/>}</div>
 }

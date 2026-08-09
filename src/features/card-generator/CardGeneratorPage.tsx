@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { CardTemplatePreview, previewPropsFromTemplate } from '@/components/cards/CardTemplatePreview'
+import { PrintableCard } from '@/components/cards/PrintableCard'
 import { getEvent } from '@/features/events/eventService'
 import { ensureCardConfigDefaults, listCardTemplates, listRuleSets } from '@/features/card-config/cardConfigService'
 import { buildGenerationPlan, composePhysicalCards, createUniqueGames } from '@/domain/cards/generator'
@@ -16,8 +17,7 @@ import { getCardLayoutPreset } from '@/domain/cards/layouts'
 import { parseCardTemplateOptions } from '@/domain/cards/templateOptions'
 import type { BingoRuleSet, CardBatch, CardTemplate, EventWithSettings, GenerationUniquenessMode } from '@/types/database'
 import { cancelCardBatch, countGameDefinitions, createCardBatch, finalizeCardBatch, listCardBatches, loadExistingCompositionSignatures, loadExistingGameDefinitions, markCardBatchFailed, persistGeneratedCards, deleteUnusedCardBatch } from './cardGenerationService'
-import { EventFlowNav } from '@/components/events/EventFlowNav'
-
+import { listBatchCardsForPrint, type PhysicalCardView } from '@/features/cards/cardService'
 type Progress = { step: string; current: number; total: number } | null
 
 export function CardGeneratorPage() {
@@ -57,10 +57,9 @@ export function CardGeneratorPage() {
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm font-bold text-emerald-700">Cartelas · motor de geração</p><h1 className="mt-1 text-3xl font-black">{event.name}</h1><p className="mt-2 text-sm text-slate-600">Gere lotes com controle de unicidade, 1 em 1, 2 em 1 ou 3 em 1 e repetição somente quando necessária.</p></div><div className="flex flex-wrap gap-2"><Link to={`/eventos/${eventId}/cartelas/configuracao`}><Button variant="secondary">Regras e layouts</Button></Link><Link to={`/eventos/${eventId}`}><Button variant="secondary">Evento</Button></Link></div></div>
     {notice && <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{notice}</div>}
     {error && <div className="rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>}
-    <EventFlowNav eventId={eventId} current="generate"/>
     {progress && <Card><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-black">{progress.step}</p><p className="text-xs text-slate-500">{progress.current.toLocaleString('pt-BR')} de {progress.total.toLocaleString('pt-BR')}</p></div><p className="text-lg font-black">{progress.total ? Math.round(progress.current / progress.total * 100) : 0}%</p></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-emerald-600 transition-all" style={{ width: `${progress.total ? progress.current / progress.total * 100 : 0}%` }} /></div></Card>}
     <GenerationForm rules={rules} templates={templates} usedByRule={usedByRule} workspaceId={currentWorkspace.id} eventId={eventId} eventName={event.name} disabled={busy} onBusy={setBusy} onProgress={setProgress} onError={setError} onDone={async message => { setNotice(message); setProgress(null); await load() }} />
-    <BatchList eventId={eventId} batches={batches} busy={busy}
+    <BatchList workspaceId={currentWorkspace.id} event={event} eventId={eventId} batches={batches} busy={busy}
       onCancel={async batch => { setBusy(true); setError(null); try { await cancelCardBatch(batch.id, 'Cancelado pelo organizador.'); setNotice('Lote cancelado e suas cartelas parciais removidas.'); await load() } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível cancelar o lote.') } finally { setBusy(false) } }}
       onDelete={async batch => {
         const ok=window.confirm(`Excluir definitivamente o lote da série ${batch.series_code}?\n\nUse isso somente para teste ou geração feita por engano. Se alguma cartela deste lote já participou de venda ou sorteio, o sistema bloqueará a exclusão.`)
@@ -166,10 +165,59 @@ function TemplateActions({eventId,template,format}:{eventId:string;template:Card
   return <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-950/25 p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-black">Personalização do modelo</p><p className="mt-1 text-xs text-slate-400">Coringa atual: <strong className="text-slate-200">{labels[wildcard?.kind??'star']}</strong>. Arte de fundo e coringa são configurados no próprio layout.</p></div><div className="flex flex-wrap gap-2">{preset&&<Button variant="secondary" onClick={()=>downloadLayoutGuidePng(preset.key,format,preset.gameAreas)}>Gerar gabarito PNG</Button>}<Link to={`/eventos/${eventId}/cartelas/configuracao?aba=layouts&editar=${template.id}`}><Button variant="secondary">Personalizar este modelo</Button></Link></div></div></div>
 }
 
-function BatchList({ eventId,batches,busy,onCancel,onDelete }:{eventId:string;batches:CardBatch[];busy:boolean;onCancel:(batch:CardBatch)=>Promise<void>;onDelete:(batch:CardBatch)=>Promise<void>}) {
+function BatchList({ workspaceId,event,eventId,batches,busy,onCancel,onDelete }:{workspaceId:string;event:EventWithSettings;eventId:string;batches:CardBatch[];busy:boolean;onCancel:(batch:CardBatch)=>Promise<void>;onDelete:(batch:CardBatch)=>Promise<void>}) {
   const completed=batches.filter(batch=>batch.status==='completed')
-  return <div className="space-y-3"><div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-xl font-black">Lotes gerados</h2><p className="text-sm text-slate-600">Teste feito por engano? Você pode excluir um lote enquanto nenhuma cartela dele tiver sido usada em venda ou sorteio.</p></div>{completed.length>0&&<Link to={`/eventos/${eventId}/cartelas`}><Button variant="secondary">Ver todas as cartelas</Button></Link>}</div>{batches.length===0?<Card><p className="text-sm text-slate-500">Nenhum lote gerado ainda.</p></Card>:<div className="grid gap-4 lg:grid-cols-2">{batches.map(batch=><Card key={batch.id}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Série {batch.series_code}</p><h3 className="mt-1 text-lg font-black">{batch.requested_cards.toLocaleString('pt-BR')} cartelas · {batch.physical_format} em 1</h3></div><StatusBadge tone={batch.status==='completed'?'success':batch.status==='failed'?'danger':batch.status==='canceled'?'warning':'neutral'}>{batchStatus[batch.status]}</StatusBadge></div><div className="mt-4 grid grid-cols-2 gap-3 text-sm"><Mini label="Cartelas gravadas" value={`${batch.generated_cards.toLocaleString('pt-BR')} / ${batch.requested_cards.toLocaleString('pt-BR')}`}/><Mini label="Jogos internos" value={batch.generated_games.toLocaleString('pt-BR')}/><Mini label="Jogos inéditos" value={batch.unique_games_created.toLocaleString('pt-BR')}/><Mini label="Reaproveitados" value={batch.reused_games.toLocaleString('pt-BR')}/></div>{batch.error_message&&<p className="mt-3 rounded-xl bg-red-50 p-3 text-xs text-red-700">{batch.error_message}</p>}{batch.status==='completed'&&<div className="mt-4 grid gap-2 sm:grid-cols-2"><Link to={`/eventos/${eventId}/cartelas?lote=${batch.id}`}><Button variant="secondary" className="w-full">Ver cartelas</Button></Link><Link to={`/eventos/${eventId}/cartelas/lote/${batch.id}/imprimir`}><Button className="w-full">Continuar: Imprimir / PDF →</Button></Link></div>}{['generating','failed'].includes(batch.status)&&<div className="mt-4"><Button variant="secondary" disabled={busy} onClick={()=>void onCancel(batch)}>Cancelar e limpar lote</Button></div>}{batch.status!=='generating'&&<div className="mt-2 flex justify-end"><button type="button" disabled={busy} onClick={()=>void onDelete(batch)} className="rounded-lg px-3 py-2 text-xs font-bold text-red-400 transition hover:bg-red-950/35 hover:text-red-300 disabled:opacity-50">Excluir lote de teste</button></div>}</Card>)}</div>}</div>
+  return <div className="space-y-3"><div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-xl font-black">Lotes gerados</h2><p className="text-sm text-slate-600">Confira uma cartela real do lote antes de imprimir. Se o lote foi só um teste ou saiu errado, você pode excluí-lo enquanto nenhuma cartela tiver sido usada.</p></div>{completed.length>0&&<Link to={`/eventos/${eventId}/cartelas`}><Button variant="secondary">Ver todas as cartelas</Button></Link>}</div>{batches.length===0?<Card><p className="text-sm text-slate-500">Nenhum lote gerado ainda.</p></Card>:<div className="grid gap-4 xl:grid-cols-2">{batches.map(batch=><Card key={batch.id}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Série {batch.series_code}</p><h3 className="mt-1 text-lg font-black">{batch.requested_cards.toLocaleString('pt-BR')} cartelas · {batch.physical_format} em 1</h3></div><StatusBadge tone={batch.status==='completed'?'success':batch.status==='failed'?'danger':batch.status==='canceled'?'warning':'neutral'}>{batchStatus[batch.status]}</StatusBadge></div><div className="mt-4 grid grid-cols-2 gap-3 text-sm"><Mini label="Cartelas gravadas" value={`${batch.generated_cards.toLocaleString('pt-BR')} / ${batch.requested_cards.toLocaleString('pt-BR')}`}/><Mini label="Jogos internos" value={batch.generated_games.toLocaleString('pt-BR')}/><Mini label="Jogos inéditos" value={batch.unique_games_created.toLocaleString('pt-BR')}/><Mini label="Reaproveitados" value={batch.reused_games.toLocaleString('pt-BR')}/></div>{batch.error_message&&<p className="mt-3 rounded-xl bg-red-50 p-3 text-xs text-red-700">{batch.error_message}</p>}{batch.status==='completed'&&<><RealBatchPreview workspaceId={workspaceId} event={event} eventId={eventId} batch={batch}/><div className="mt-4 grid gap-2 sm:grid-cols-2"><Link to={`/eventos/${eventId}/cartelas?lote=${batch.id}`}><Button variant="secondary" className="w-full">Ver todas</Button></Link><Link to={`/eventos/${eventId}/cartelas/lote/${batch.id}/imprimir`}><Button className="w-full">Gerar / Imprimir PDF</Button></Link></div></>}{['generating','failed'].includes(batch.status)&&<div className="mt-4"><Button variant="secondary" disabled={busy} onClick={()=>void onCancel(batch)}>Cancelar e limpar lote</Button></div>}{batch.status!=='generating'&&<div className="mt-2 flex justify-end"><button type="button" disabled={busy} onClick={()=>void onDelete(batch)} className="rounded-lg px-3 py-2 text-xs font-bold text-red-400 transition hover:bg-red-950/35 hover:text-red-300 disabled:opacity-50">Excluir lote de teste</button></div>}</Card>)}</div>}</div>
 }
+
+function RealBatchPreview({workspaceId,event,eventId,batch}:{workspaceId:string;event:EventWithSettings;eventId:string;batch:CardBatch}){
+  const [card,setCard]=useState<PhysicalCardView|null>(null)
+  const [loading,setLoading]=useState(true)
+  const [expanded,setExpanded]=useState(false)
+  const [previewError,setPreviewError]=useState<string|null>(null)
+
+  useEffect(()=>{
+    let active=true
+    setLoading(true);setPreviewError(null)
+    void listBatchCardsForPrint(workspaceId,eventId,batch.id,0,1)
+      .then(rows=>{if(active)setCard(rows[0]??null)})
+      .catch(()=>{if(active)setPreviewError('Não foi possível carregar a miniatura.')})
+      .finally(()=>{if(active)setLoading(false)})
+    return()=>{active=false}
+  },[workspaceId,eventId,batch.id])
+
+  if(loading)return <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-950/30 p-4 text-sm text-slate-400">Montando miniatura real da primeira cartela…</div>
+  if(previewError||!card)return <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-950/30 p-4 text-sm text-slate-400">{previewError??'Miniatura indisponível.'}</div>
+
+  return <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-950/35 p-4">
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div><p className="text-sm font-black text-slate-100">Prévia real da cartela</p><p className="text-xs text-slate-400">Primeira cartela do lote, com números, arte e coringa realmente salvos.</p></div>
+      <Button variant="secondary" onClick={()=>setExpanded(true)}>Expandir e conferir detalhes</Button>
+    </div>
+    <button type="button" onClick={()=>setExpanded(true)} className="group mx-auto block w-full max-w-[290px] cursor-zoom-in rounded-2xl border border-slate-700 bg-slate-900 p-2 text-left shadow-xl transition hover:border-red-500/70" aria-label="Expandir prévia da cartela">
+      <div className="aspect-[210/297] overflow-hidden rounded-xl bg-white">
+        <PrintableCard card={card} event={event}/>
+      </div>
+      <p className="mt-2 text-center text-xs font-bold text-slate-300">Cartela {card.code} · toque para ampliar</p>
+    </button>
+    {expanded&&<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Prévia ampliada da cartela" onClick={()=>setExpanded(false)}>
+      <div className="flex h-full max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between gap-3 border-b border-slate-800 p-3 sm:p-4">
+          <div className="min-w-0"><p className="font-black text-white">Cartela {card.code}</p><p className="truncate text-xs text-slate-400">Visualização ampliada antes do PDF</p></div>
+          <Button variant="secondary" onClick={()=>setExpanded(false)}>Fechar</Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-6">
+          <div className="mx-auto w-full max-w-[760px]">
+            <div className="aspect-[210/297] overflow-hidden rounded-xl bg-white shadow-2xl">
+              <PrintableCard card={card} event={event}/>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>}
+  </div>
+}
+
 function friendlyDeleteError(message:string){
   const lower=message.toLowerCase()
   if(lower.includes('sale')||lower.includes('venda'))return 'Este lote não pode ser excluído porque já possui cartela vinculada a venda ou reserva. Cancele a operação primeiro, se isso ainda for permitido.'

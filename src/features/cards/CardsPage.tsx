@@ -9,8 +9,6 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { listCardBatches } from '@/features/card-generator/cardGenerationService'
 import { listEventCards } from './cardService'
 import type { CardBatch, PhysicalCard, PhysicalCardStatus } from '@/types/database'
-import { EventFlowNav } from '@/components/events/EventFlowNav'
-
 const labels: Record<PhysicalCardStatus, string> = { available:'Disponível', reserved:'Reservada', sold:'Vendida', canceled:'Cancelada', void:'Anulada' }
 type CardListItem = PhysicalCard & { batch: CardBatch }
 
@@ -52,7 +50,6 @@ export function CardsPage() {
 
   return <div className="space-y-6">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="bingoup-eyebrow">Cartelas</p><h1 className="text-3xl font-black text-white">Cartelas emitidas</h1><p className="mt-1 text-sm text-slate-400">Consulte cada cartela e escolha um lote para imprimir ou gerar PDF.</p></div><div className="flex flex-wrap gap-2"><Link to={`/eventos/${eventId}/cartelas/gerar`}><Button>+ Gerar lote</Button></Link><Link to={`/eventos/${eventId}/cartelas/configuracao`}><Button variant="secondary">Layouts</Button></Link>{batchId && <Link to={`/eventos/${eventId}/cartelas/lote/${batchId}/imprimir`}><Button variant="secondary">Imprimir / Gerar PDF</Button></Link>}</div></div>
-    {eventId&&<EventFlowNav eventId={eventId} current="cards"/>}
     <div className="grid gap-3 sm:grid-cols-4"><Metric t="Exibidas" v={cards.length}/><Metric t="Disponíveis" v={counts.available ?? 0}/><Metric t="Vendidas" v={counts.sold ?? 0}/><Metric t="Anuladas" v={counts.void ?? 0}/></div>
     <Card><div className="grid gap-3 md:grid-cols-3"><label className="text-sm font-semibold">Buscar código<Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ex.: A-000125" className="mt-1"/></label><label className="text-sm font-semibold">Lote<Select value={batchId} onChange={(event) => chooseBatch(event.target.value)} className="mt-1"><option value="">Todos</option>{batches.filter((batch) => batch.status === 'completed').map((batch) => <option key={batch.id} value={batch.id}>{batch.series_code} · {batch.generated_cards} cartelas</option>)}</Select></label><label className="text-sm font-semibold">Status<Select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1"><option value="">Todos</option>{Object.entries(labels).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</Select></label></div>{selectedBatch && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-900/30 bg-red-950/15 p-3"><p className="text-sm text-slate-300"><strong className="text-white">Série {selectedBatch.series_code}</strong> · {selectedBatch.physical_format} em 1 · {selectedBatch.generated_cards} cartelas</p><Link to={`/eventos/${eventId}/cartelas/lote/${selectedBatch.id}/imprimir`} className="text-sm font-black text-red-400">Abrir impressão / PDF →</Link></div>}</Card>
     {error && <div className="rounded-2xl border border-red-900/40 bg-red-950/25 p-4 text-red-300">{error}</div>}

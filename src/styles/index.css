@@ -239,3 +239,19 @@
     font-size:9px;
   }
 }
+
+
+/* Fase 12.6 — prévia real da cartela */
+.aspect-\[210\/297\] > .print-card{
+  width:100% !important;
+  height:100% !important;
+  min-width:0 !important;
+  min-height:0 !important;
+}
+@media screen{
+  .print-card.print-art-card{
+    position:relative;
+    overflow:hidden;
+    background:#fff;
+  }
+}

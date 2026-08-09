@@ -8,8 +8,6 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { getEvent, getEventBannerUrl, updateEventSettings, updateEventStatus, uploadEventBanner } from './eventService'
 import { eventStatusLabel, eventStatusTone, formatEventDate } from './eventUtils'
 import type { EventSettings, EventStatus, EventWithSettings } from '@/types/database'
-import { EventFlowNav } from '@/components/events/EventFlowNav'
-
 const manualStatuses: EventStatus[] = ['draft','sales_open','sales_paused','ready','canceled']
 
 export function EventDetailPage(){
@@ -29,7 +27,6 @@ export function EventDetailPage(){
 
   return <div className="space-y-6">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold text-emerald-700">Evento</p><StatusBadge tone={eventStatusTone(event.status)}>{eventStatusLabel[event.status]}</StatusBadge></div><h1 className="mt-2 text-3xl font-black tracking-tight">{event.name}</h1><p className="mt-2 text-sm text-slate-600">{formatEventDate(event.starts_at)} · Código público {event.public_code}</p></div><div className="flex flex-wrap gap-2"><Link to="/eventos"><Button variant="secondary">Voltar</Button></Link><Link to={`/eventos/${event.id}/editar`}><Button>Editar</Button></Link></div></div>
-    <EventFlowNav eventId={event.id}/>
     {notice&&<div className="rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{notice}</div>}{error&&<div className="rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-700">{error}</div>}
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,.7fr)]">
       <div className="space-y-5">
