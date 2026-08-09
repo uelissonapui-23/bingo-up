@@ -43,6 +43,6 @@ export function RegisterPage() {
 }
 
 export function AuthFrame({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return <main className="grid min-h-dvh place-items-center bg-slate-50 p-4"><section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"><div className="mb-6"><div className="mb-4 grid size-12 place-items-center rounded-2xl bg-slate-900 text-xl font-black text-white">B</div><h1 className="text-2xl font-bold">{title}</h1><p className="mt-1 text-sm text-slate-600">{subtitle}</p></div>{children}</section></main>
+  return <main className="bingoup-auth"><section className="bingoup-auth-card"><img className="bingoup-auth-logo" src="/brand/bingoup-logo-dark.png" alt="BINGOUP - Sistema de Bingo Computadorizado"/><div className="mb-6"><h1 className="text-2xl font-black text-white">{title}</h1><p className="mt-1 text-sm text-slate-400">{subtitle}</p></div>{children}</section></main>
 }
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block text-sm font-medium text-slate-800">{label}<div className="mt-1">{children}</div></label> }
+function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block text-sm font-medium text-slate-200">{label}<div className="mt-1">{children}</div></label> }

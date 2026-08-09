@@ -13,22 +13,22 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.png'],
       manifest: {
-        name: 'Bingo PWA',
-        short_name: 'Bingo',
+        name: 'BINGOUP - Sistema de Bingo Computadorizado',
+        short_name: 'BINGOUP',
         description: 'Plataforma PWA multi-organizador para gestão de eventos de bingo.',
-        theme_color: '#111827',
-        background_color: '#f8fafc',
+        theme_color: '#0b0d11',
+        background_color: '#0b0d11',
         display: 'standalone',
         start_url: '/',
         scope: '/',
         lang: 'pt-BR',
         icons: [
           {
-            src: '/pwa-icon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: '/pwa-icon.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'any maskable'
           }
         ]
