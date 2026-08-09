@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useWorkspace } from '@/app/providers/WorkspaceProvider'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -21,7 +21,7 @@ const STANDARD_COLUMNS:ColumnDefinition[]=[{label:'B',min:1,max:15,count:5},{lab
 const DEFAULT_PATTERNS=[{code:'one_line',name:'1 linha',kind:'line'},{code:'two_lines',name:'2 linhas',kind:'two_lines'},{code:'full_card',name:'Cartela cheia',kind:'full_card'}]
 
 export function CardConfigurationPage(){
- const {eventId}=useParams(); const {currentWorkspace}=useWorkspace(); const [event,setEvent]=useState<EventWithSettings|null>(null); const [rules,setRules]=useState<BingoRuleSet[]>([]); const [templates,setTemplates]=useState<CardTemplate[]>([]); const [tab,setTab]=useState<Tab>('rules'); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null); const [notice,setNotice]=useState<string|null>(null)
+ const {eventId}=useParams(); const [searchParams]=useSearchParams(); const {currentWorkspace}=useWorkspace(); const [event,setEvent]=useState<EventWithSettings|null>(null); const [rules,setRules]=useState<BingoRuleSet[]>([]); const [templates,setTemplates]=useState<CardTemplate[]>([]); const [tab,setTab]=useState<Tab>(searchParams.get('aba')==='layouts'?'templates':'rules'); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null); const [notice,setNotice]=useState<string|null>(null)
  const load=useCallback(async()=>{if(!currentWorkspace||!eventId)return;setLoading(true);setError(null);try{await ensureCardConfigDefaults(eventId);const [ev,rs,ts]=await Promise.all([getEvent(currentWorkspace.id,eventId),listRuleSets(currentWorkspace.id,eventId),listCardTemplates(currentWorkspace.id,eventId)]);setEvent(ev);setRules(rs);setTemplates(ts)}catch(e){setError(e instanceof Error?e.message:'Não foi possível carregar a configuração.')}finally{setLoading(false)}},[currentWorkspace,eventId])
  useEffect(()=>{void load()},[load])
  if(loading)return <Card>Carregando regras e templates…</Card>

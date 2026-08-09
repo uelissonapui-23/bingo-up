@@ -11,6 +11,9 @@ import { getEvent } from '@/features/events/eventService'
 import { ensureCardConfigDefaults, listCardTemplates, listRuleSets } from '@/features/card-config/cardConfigService'
 import { buildGenerationPlan, composePhysicalCards, createUniqueGames } from '@/domain/cards/generator'
 import { formatBigInt, uniqueGameCapacity } from '@/domain/cards/capacity'
+import { downloadLayoutGuidePng } from '@/domain/cards/artwork'
+import { getCardLayoutPreset } from '@/domain/cards/layouts'
+import { parseCardTemplateOptions } from '@/domain/cards/templateOptions'
 import type { BingoRuleSet, CardBatch, CardTemplate, EventWithSettings, GenerationUniquenessMode } from '@/types/database'
 import { cancelCardBatch, countGameDefinitions, createCardBatch, finalizeCardBatch, listCardBatches, loadExistingCompositionSignatures, loadExistingGameDefinitions, markCardBatchFailed, persistGeneratedCards } from './cardGenerationService'
 
@@ -130,7 +133,7 @@ function GenerationForm({ rules, templates, usedByRule, workspaceId, eventId, ev
     <div className="mt-5 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,.8fr)]"><div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <label className="text-sm font-semibold">Regra<Select className="mt-1" value={rule.id} onChange={e=>setRuleId(e.target.value)}>{rules.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</Select></label>
       <label className="text-sm font-semibold">Formato<Select className="mt-1" value={format} onChange={e=>setFormat(Number(e.target.value) as 1|2|3)}><option value={1}>1 em 1</option><option value={2}>2 em 1</option><option value={3}>3 em 1</option></Select></label>
-      <label className="text-sm font-semibold">Layout<Select className="mt-1" value={template?.id ?? ''} onChange={e=>setTemplateId(e.target.value)}>{compatibleTemplates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</Select></label>
+      <label className="text-sm font-semibold">Modelo da cartela<Select className="mt-1" value={template?.id ?? ''} onChange={e=>setTemplateId(e.target.value)}>{compatibleTemplates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</Select></label>
       <label className="text-sm font-semibold">Série<Input className="mt-1" maxLength={20} value={series} onChange={e=>setSeries(e.target.value.toUpperCase())}/></label>
       <NumberField label="Quantidade de cartelas" value={quantity} set={setQuantity} min={1} max={1_000_000}/>
       <NumberField label="Primeiro número" value={startNumber} set={setStartNumber} min={1}/>
@@ -139,9 +142,17 @@ function GenerationForm({ rules, templates, usedByRule, workspaceId, eventId, ev
     </div>
     <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><Metric label="Jogos únicos matemáticos" value={formatBigInt(capacity)}/><Metric label="Jogos únicos já emitidos" value={formatBigInt(used)}/><Metric label={`Máximo ${format} em 1 sem repetir`} value={formatBigInt(plan.strictCardLimit)}/><Metric label="Jogos que este lote repete" value={formatBigInt(plan.repeatedGamesRequired)} tone={plan.repeatedGamesRequired>0n?'warning':'normal'}/></div>
     {needsControlled && <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-black">A quantidade solicitada excede o universo ainda disponível sem repetição.</p><p className="mt-1">No modo controlado, {format===1?'repetições integrais só aparecem depois de esgotados os jogos inéditos.':`cada cartela terá no máximo 1 jogo reaproveitado e ${format-1} jogo${format-1>1?'s':''} inédito${format-1>1?'s':''}.`} {format>1&&plan.controlledCardLimit!==null&&<>O limite mantendo essa regra é {formatBigInt(plan.controlledCardLimit)} cartelas.</>}</p></div>}
-    <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-slate-500">A prévia acompanha formato, layout, série, numeração, orientação e QR do modelo selecionado.</p><Button disabled={disabled||!template} onClick={()=>void generate()}>{disabled?'Gerando…':'Gerar lote'}</Button></div></div>
-    <div className="xl:sticky xl:top-24 xl:self-start"><div className="mb-3"><p className="text-xs font-black uppercase tracking-[.16em] text-red-400">Prévia da cartela</p><p className="mt-1 text-sm text-slate-400">Exemplo da primeira cartela deste lote.</p></div>{template?<CardTemplatePreview format={format} layoutKey={template.layout_key} eventName={eventName} seriesCode={series.trim().toUpperCase() || 'A'} sequenceNumber={startNumber} codePadding={padding} rule={rule} {...previewPropsFromTemplate(template)}/>:<div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">Selecione um layout para visualizar.</div>}</div></div>
+    {template&&<TemplateActions eventId={eventId} template={template} format={format}/>}
+    <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-slate-500">A prévia acompanha formato, modelo, série, numeração e o coringa configurado.</p><Button disabled={disabled||!template} onClick={()=>void generate()}>{disabled?'Gerando…':'Gerar lote'}</Button></div></div>
+    <div className="xl:sticky xl:top-24 xl:self-start"><div className="mb-3"><p className="text-xs font-black uppercase tracking-[.16em] text-red-400">Prévia da cartela</p><p className="mt-1 text-sm text-slate-400">Exemplo da primeira cartela deste lote.</p></div>{template?<CardTemplatePreview format={format} layoutKey={template.layout_key} eventName={eventName} seriesCode={series.trim().toUpperCase() || 'A'} sequenceNumber={startNumber} codePadding={padding} rule={rule} {...previewPropsFromTemplate(template)}/>:<div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">Selecione um modelo para visualizar.</div>}</div></div>
   </Card>
+}
+
+function TemplateActions({eventId,template,format}:{eventId:string;template:CardTemplate;format:1|2|3}){
+  const preset=getCardLayoutPreset(template.layout_key,format)
+  const wildcard=parseCardTemplateOptions(template.options).wildcard
+  const labels={star:'Estrela',circle:'Bola',heart:'Coração',cross:'Símbolo',fire:'Fogueira',soccer:'Bola de futebol',custom:'Imagem personalizada',none:'Sem símbolo'} as const
+  return <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-950/25 p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-black">Personalização do modelo</p><p className="mt-1 text-xs text-slate-400">Coringa atual: <strong className="text-slate-200">{labels[wildcard?.kind??'star']}</strong>. Arte de fundo e coringa são configurados no próprio layout.</p></div><div className="flex flex-wrap gap-2">{preset&&<Button variant="secondary" onClick={()=>downloadLayoutGuidePng(preset.key,format,preset.gameAreas)}>Gerar gabarito PNG</Button>}<Link to={`/eventos/${eventId}/cartelas/configuracao?aba=layouts`}><Button variant="secondary">Arte e coringa</Button></Link></div></div></div>
 }
 
 function BatchList({ eventId,batches,busy,onCancel }:{eventId:string;batches:CardBatch[];busy:boolean;onCancel:(batch:CardBatch)=>Promise<void>}) {
