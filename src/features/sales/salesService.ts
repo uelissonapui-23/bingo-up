@@ -8,7 +8,7 @@ export type SaleView=Sale&{items:Array<SaleItem&{card:Pick<PhysicalCard,'id'|'co
 export type SalesSummary={available:number;reserved:number;sold:number;canceled:number;void:number;totalCards:number;completedAmount:number;completedSales:number}
 
 export async function listSalesEvents(workspaceId:string){
-  const {data,error}=await supabase.from('events').select('id,name,status,starts_at,event_settings!inner(currency,default_card_price,allow_reservations,require_buyer_name,require_buyer_phone,require_buyer_email,reservation_minutes)').eq('workspace_id',workspaceId).neq('status','archived').order('created_at',{ascending:false})
+  const {data,error}=await supabase.from('events').select('id,name,status,starts_at,event_settings!event_settings_event_id_fkey!inner(currency,default_card_price,allow_reservations,require_buyer_name,require_buyer_phone,require_buyer_email,reservation_minutes)').eq('workspace_id',workspaceId).neq('status','archived').order('created_at',{ascending:false})
   if(error)throw error
   return (data??[]).map((r:any)=>({...r,settings:r.event_settings})) as SalesEventOption[]
 }

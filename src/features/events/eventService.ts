@@ -9,7 +9,7 @@ function isoOrNull(value?: string) {
 export async function listEvents(workspaceId: string, includeArchived = false): Promise<EventWithSettings[]> {
   let query = supabase
     .from('events')
-    .select('*, event_settings(*)')
+    .select('*, event_settings!event_settings_event_id_fkey(*)')
     .eq('workspace_id', workspaceId)
     .order('starts_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
@@ -26,7 +26,7 @@ export async function listEvents(workspaceId: string, includeArchived = false): 
 export async function getEvent(workspaceId: string, eventId: string): Promise<EventWithSettings> {
   const { data, error } = await supabase
     .from('events')
-    .select('*, event_settings(*)')
+    .select('*, event_settings!event_settings_event_id_fkey(*)')
     .eq('workspace_id', workspaceId)
     .eq('id', eventId)
     .single()
