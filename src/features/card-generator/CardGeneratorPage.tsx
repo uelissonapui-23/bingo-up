@@ -59,7 +59,7 @@ export function CardGeneratorPage() {
     {notice && <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{notice}</div>}
     {error && <div className="rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>}
     {progress && <Card><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-black">{progress.step}</p><p className="text-xs text-slate-500">{progress.current.toLocaleString('pt-BR')} de {progress.total.toLocaleString('pt-BR')}</p></div><p className="text-lg font-black">{progress.total ? Math.round(progress.current / progress.total * 100) : 0}%</p></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-emerald-600 transition-all" style={{ width: `${progress.total ? progress.current / progress.total * 100 : 0}%` }} /></div></Card>}
-    <GenerationForm rules={rules} templates={templates} eventArtwork={eventArtwork} usedByRule={usedByRule} workspaceId={currentWorkspace.id} eventId={eventId} eventName={event.name} initialFormat={searchParams.get('formato')} initialTemplateId={searchParams.get('modelo')} disabled={busy} onBusy={setBusy} onProgress={setProgress} onError={setError} onDone={async message => { setNotice(message); setProgress(null); const [bs,counts]=await Promise.all([listCardBatches(currentWorkspace.id,eventId),Promise.all(rules.map(async r=>[r.id,await countGameDefinitions(r.id)] as const))]);setBatches(bs);setUsedByRule(Object.fromEntries(counts)) }} onArtworkSaved={setEventArtwork} />
+    <GenerationForm rules={rules} templates={templates} eventArtwork={eventArtwork} batches={batches} usedByRule={usedByRule} workspaceId={currentWorkspace.id} eventId={eventId} eventName={event.name} initialFormat={searchParams.get('formato')} initialTemplateId={searchParams.get('modelo')} disabled={busy} onBusy={setBusy} onProgress={setProgress} onError={setError} onDone={async message => { setNotice(message); setProgress(null); const [bs,counts]=await Promise.all([listCardBatches(currentWorkspace.id,eventId),Promise.all(rules.map(async r=>[r.id,await countGameDefinitions(r.id)] as const))]);setBatches(bs);setUsedByRule(Object.fromEntries(counts)) }} onArtworkSaved={setEventArtwork} />
     <BatchList workspaceId={currentWorkspace.id} event={event} eventId={eventId} batches={batches} busy={busy}
       onCancel={async batch => { setBusy(true); setError(null); try { await cancelCardBatch(batch.id, 'Cancelado pelo organizador.'); setNotice('Lote cancelado e suas cartelas parciais removidas.'); await load() } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível cancelar o lote.') } finally { setBusy(false) } }}
       onDelete={async batch => {
@@ -73,7 +73,7 @@ export function CardGeneratorPage() {
   </div>
 }
 
-function GenerationForm({ rules, templates, eventArtwork, usedByRule, workspaceId, eventId, eventName, initialFormat, initialTemplateId, disabled, onBusy, onProgress, onError, onDone, onArtworkSaved }:{ rules:BingoRuleSet[];templates:CardTemplate[];eventArtwork:CardArtworkOptions|undefined;usedByRule:Record<string,number>;workspaceId:string;eventId:string;eventName:string;initialFormat:string|null;initialTemplateId:string|null;disabled:boolean;onBusy:(v:boolean)=>void;onProgress:(v:Progress)=>void;onError:(v:string|null)=>void;onDone:(message:string)=>Promise<void>;onArtworkSaved:(artwork:CardArtworkOptions)=>void }) {
+function GenerationForm({ rules, templates, eventArtwork, batches, usedByRule, workspaceId, eventId, eventName, initialFormat, initialTemplateId, disabled, onBusy, onProgress, onError, onDone, onArtworkSaved }:{ rules:BingoRuleSet[];templates:CardTemplate[];eventArtwork:CardArtworkOptions|undefined;batches:CardBatch[];usedByRule:Record<string,number>;workspaceId:string;eventId:string;eventName:string;initialFormat:string|null;initialTemplateId:string|null;disabled:boolean;onBusy:(v:boolean)=>void;onProgress:(v:Progress)=>void;onError:(v:string|null)=>void;onDone:(message:string)=>Promise<void>;onArtworkSaved:(artwork:CardArtworkOptions)=>void }) {
   const defaultRule = rules.find(r => r.is_default) ?? rules[0]
   const [ruleId, setRuleId] = useState(defaultRule?.id ?? '')
   const requestedFormat = Number(initialFormat)
@@ -82,7 +82,8 @@ function GenerationForm({ rules, templates, eventArtwork, usedByRule, workspaceI
   const compatibleTemplates = useMemo(() => templates.filter(t => t.physical_format === format), [templates, format])
   const defaultTemplate = compatibleTemplates.find(t => t.is_default) ?? compatibleTemplates[0]
   const [templateId, setTemplateId] = useState(()=>compatibleTemplates.some(t=>t.id===initialTemplateId)?initialTemplateId??'':defaultTemplate?.id??'')
-  const [series, setSeries] = useState('A')
+  const suggestedSeries = useMemo(() => nextAvailableSeries(batches), [batches])
+  const [series, setSeries] = useState(() => suggestedSeries)
   const [quantity, setQuantity] = useState(100)
   const [startNumber, setStartNumber] = useState(1)
   const [padding, setPadding] = useState(5)
@@ -93,6 +94,10 @@ function GenerationForm({ rules, templates, eventArtwork, usedByRule, workspaceI
 
   useEffect(() => { const t = templates.filter(x => x.physical_format === format); setTemplateId(current => t.some(x => x.id === current) ? current : (t.find(x => x.is_default) ?? t[0])?.id ?? '') }, [format, templates])
   useEffect(() => { if (defaultRule && !ruleId) setRuleId(defaultRule.id) }, [defaultRule, ruleId])
+  useEffect(() => {
+    const normalized = series.trim().toUpperCase()
+    if (!normalized || batches.some(batch => batch.series_code.toUpperCase() === normalized)) setSeries(suggestedSeries)
+  }, [batches, series, suggestedSeries])
 
   const capacity = rule ? uniqueGameCapacity({ totalBalls:rule.total_balls,numbersPerGame:rule.numbers_per_game,distributionMode:rule.distribution_mode,columns:rule.column_definitions }) : 0n
   const used = BigInt(rule ? usedByRule[rule.id] ?? 0 : 0)
@@ -104,6 +109,12 @@ function GenerationForm({ rules, templates, eventArtwork, usedByRule, workspaceI
     if (!rule || !template) { onError('Selecione uma regra e um layout compatível.'); return }
     const normalizedSeries = series.trim().toUpperCase()
     if (!/^[A-Z0-9][A-Z0-9_-]{0,19}$/.test(normalizedSeries)) { onError('A série deve ter de 1 a 20 caracteres, usando letras, números, _ ou -.'); return }
+    if (batches.some(batch => batch.series_code.toUpperCase() === normalizedSeries)) {
+      const nextSeries = nextAvailableSeries(batches)
+      setSeries(nextSeries)
+      onError(`A série ${normalizedSeries} já foi usada neste evento. Ajustei automaticamente para ${nextSeries}. Clique em Gerar cartelas novamente.`)
+      return
+    }
     if (quantity < 1 || quantity > 10_000) { onError('Por segurança e desempenho, gere entre 1 e 10.000 cartelas por lote. Para quantidades maiores, crie lotes adicionais.'); return }
     if (needsControlled && mode === 'strict') { onError(`Essa quantidade ultrapassa o limite sem repetição. O máximo atual é ${formatBigInt(plan.strictCardLimit)} cartelas.`); return }
     if (mode === 'controlled' && !plan.canGenerateControlled) { onError(format === 1 ? 'Não foi possível montar o plano.' : `Mesmo com repetição controlada, o máximo atual é ${formatBigInt(plan.controlledCardLimit ?? 0n)} cartelas mantendo no máximo um jogo repetido por cartela.`); return }
@@ -135,7 +146,7 @@ function GenerationForm({ rules, templates, eventArtwork, usedByRule, workspaceI
       await finalizeCardBatch(batchId)
       await onDone(`Lote ${normalizedSeries} concluído: ${quantity.toLocaleString('pt-BR')} cartelas e ${(quantity*format).toLocaleString('pt-BR')} jogos.`)
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Falha durante a geração.'
+      const message = generationErrorMessage(e)
       if (batchId) { try { await markCardBatchFailed(batchId,message) } catch { /* mantém erro original */ } }
       onError(message)
       onProgress(null)
@@ -151,7 +162,7 @@ function GenerationForm({ rules, templates, eventArtwork, usedByRule, workspaceI
       <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-950/20 p-4"><button type="button" onClick={()=>setShowAdvanced(v=>!v)} className="flex w-full items-center justify-between gap-3 text-left"><div><p className="text-sm font-black text-slate-200">Configurações avançadas</p><p className="mt-1 text-xs text-slate-500">Regra, série, numeração e controle de repetição. Normalmente não é necessário alterar.</p></div><span className="text-lg font-black text-slate-400">{showAdvanced?'−':'+'}</span></button>
       {showAdvanced&&<div className="mt-4 border-t border-slate-800 pt-4"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-sm font-semibold">Regra<Select className="mt-1" value={rule.id} onChange={e=>setRuleId(e.target.value)}>{rules.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</Select></label>
-        <label className="text-sm font-semibold">Série<Input className="mt-1" maxLength={20} value={series} onChange={e=>setSeries(e.target.value.toUpperCase())}/></label>
+        <label className="text-sm font-semibold">Série do lote<Input className="mt-1" maxLength={20} value={series} onChange={e=>setSeries(e.target.value.toUpperCase())}/><span className="mt-1 block text-xs font-normal text-slate-500">Preenchida automaticamente com a próxima série livre. Altere somente se precisar.</span></label>
         <NumberField label="Primeiro número" value={startNumber} set={setStartNumber} min={1}/>
         <NumberField label="Dígitos do código" value={padding} set={setPadding} min={1} max={12}/>
         <label className="text-sm font-semibold sm:col-span-2">Repetição de jogos<Select className="mt-1" value={mode} onChange={e=>setMode(e.target.value as GenerationUniquenessMode)}><option value="strict">Não repetir jogos</option><option value="controlled">Permitir repetição controlada se faltar combinação inédita</option></Select></label>
@@ -243,6 +254,42 @@ function RealBatchPreview({workspaceId,event,eventId,batch}:{workspaceId:string;
       </div>
     </div>}
   </div>
+}
+
+function seriesFromIndex(index:number){
+  let value=Math.max(0,Math.trunc(index))+1
+  let result=''
+  while(value>0){
+    value-=1
+    result=String.fromCharCode(65+(value%26))+result
+    value=Math.floor(value/26)
+  }
+  return result
+}
+
+function nextAvailableSeries(batches:CardBatch[]){
+  const used=new Set(batches.map(batch=>batch.series_code.trim().toUpperCase()))
+  for(let index=0;index<10000;index+=1){
+    const candidate=seriesFromIndex(index)
+    if(!used.has(candidate))return candidate
+  }
+  return `L${Date.now().toString(36).toUpperCase()}`.slice(0,20)
+}
+
+function generationErrorMessage(error:unknown){
+  if(error instanceof Error&&error.message)return error.message
+  if(error&&typeof error==='object'){
+    const value=error as {message?:unknown;details?:unknown;hint?:unknown;code?:unknown}
+    const message=typeof value.message==='string'?value.message.trim():''
+    const details=typeof value.details==='string'?value.details.trim():''
+    const hint=typeof value.hint==='string'?value.hint.trim():''
+    const code=typeof value.code==='string'?value.code.trim():''
+    const combined=[message,details,hint].filter(Boolean).join(' ')
+    if(code==='23505'&&combined.toLowerCase().includes('series'))return 'Esta série de lote já existe neste evento. O sistema escolherá automaticamente a próxima série livre.'
+    if(code==='23505'&&combined.toLowerCase().includes('code'))return 'A numeração desta série já existe neste evento. Use a próxima série automática ou altere o primeiro número.'
+    if(combined)return combined
+  }
+  return 'Falha durante a geração. O servidor não retornou uma mensagem detalhada.'
 }
 
 function friendlyDeleteError(message:string){
