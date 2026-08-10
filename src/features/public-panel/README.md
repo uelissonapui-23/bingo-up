@@ -1,9 +1,7 @@
-# Painel público — Fase 10
+# Painel público
 
 Tela pública para TV, segundo monitor ou projetor. Usa um `public_token` UUID por sessão e uma RPC `security definer` que devolve apenas dados seguros para o público.
 
-Exibe: último número, quadro de números chamados, progresso da rodada, quantidades de jogos a 1 e 2 números da premiação, possível bingo e bingo confirmado.
+O painel é otimizado para 16:9 e telas grandes, sem depender do shell autenticado. Exibe número atual, últimos chamados, quadro BINGO completo, andamento da rodada e proximidade de premiação. Possui ação de tela cheia e estados próprios para possível bingo e vencedor confirmado.
 
-Não expõe: comprador, telefone/e-mail, valores, vendas, códigos das cartelas próximas, IDs de jogos, controles administrativos ou credenciais.
-
-O Realtime observa somente `public_panel_signals`, uma tabela sem dados administrativos. Ao receber o sinal, o cliente busca novamente a projeção pública segura. Existe polling de 15 s apenas como fallback para redes que bloqueiem websocket.
+O Realtime observa somente `public_panel_signals`, uma tabela sem dados administrativos. Ao receber o sinal, o cliente busca novamente a projeção pública segura. Existe polling de 12 s apenas como fallback para redes que bloqueiem websocket.
