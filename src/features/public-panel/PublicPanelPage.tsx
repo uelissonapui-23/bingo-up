@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useMemo,useState} from 'react'
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react'
 import {useParams} from 'react-router-dom'
 import {buildPublicBoardColumns,recentCalledNumbers} from '@/domain/draw/publicBoard'
 import {getPublicPanelState,type PublicPanelState} from './publicPanelService'
@@ -17,7 +17,7 @@ export function PublicPanelPage(){
   const [error,setError]=useState<string|null>(null)
   const [connected,setConnected]=useState(true)
   const [screenMode,setScreenMode]=useState<ScreenMode>(()=>getScreenMode())
-  const [fullscreen,setFullscreen]=useState(()=>Boolean(document.fullscreenElement))
+  const [fullscreen,setFullscreen]=useState(()=>Boolean(document.fullscreenElement));const explicitFullscreenExit=useRef(false);const [fullscreenWanted,setFullscreenWanted]=useState(()=>sessionStorage.getItem('bingoup:tv-fullscreen-wanted')==='1')
   const load=useCallback(async()=>{if(!publicSessionId)return;try{setState(await getPublicPanelState(publicSessionId));setError(null);setConnected(true)}catch{setConnected(false);setError('Este painel não está disponível ou o link é inválido.')}},[publicSessionId])
   useEffect(()=>{void load()},[load])
   useEffect(()=>{
@@ -28,13 +28,13 @@ export function PublicPanelPage(){
     return()=>{window.clearInterval(id);window.removeEventListener('online',refresh);window.removeEventListener('focus',refresh)}
   },[load])
   useEffect(()=>{const resize=()=>setScreenMode(getScreenMode());window.addEventListener('resize',resize);window.addEventListener('orientationchange',resize);return()=>{window.removeEventListener('resize',resize);window.removeEventListener('orientationchange',resize)}},[])
-  useEffect(()=>{const changed=()=>setFullscreen(Boolean(document.fullscreenElement));document.addEventListener('fullscreenchange',changed);return()=>document.removeEventListener('fullscreenchange',changed)},[])
+  useEffect(()=>{const changed=()=>{const active=Boolean(document.fullscreenElement);setFullscreen(active);if(active){setFullscreenWanted(true);sessionStorage.setItem('bingoup:tv-fullscreen-wanted','1')}else if(explicitFullscreenExit.current){explicitFullscreenExit.current=false;setFullscreenWanted(false);sessionStorage.removeItem('bingoup:tv-fullscreen-wanted')}};document.addEventListener('fullscreenchange',changed);return()=>document.removeEventListener('fullscreenchange',changed)},[])
   const called=useMemo(()=>new Set(state?.called_numbers??[]),[state?.called_numbers])
   const columns=useMemo(()=>buildPublicBoardColumns(state?.total_balls??75),[state?.total_balls])
   const recent=useMemo(()=>recentCalledNumbers(state?.called_numbers??[],screenMode==='portrait'?5:8),[state?.called_numbers,screenMode])
   async function toggleFullscreen(){
-    if(document.fullscreenElement)await document.exitFullscreen?.()
-    else await document.documentElement.requestFullscreen?.()
+    if(document.fullscreenElement){explicitFullscreenExit.current=true;await document.exitFullscreen?.()}
+    else{setFullscreenWanted(true);sessionStorage.setItem('bingoup:tv-fullscreen-wanted','1');await document.documentElement.requestFullscreen?.()}
   }
   if(error&&!state)return <main className="grid h-[100dvh] place-items-center overflow-hidden bg-[#080808] p-8 text-white"><div className="max-w-xl text-center"><p className="text-3xl font-black">Painel indisponível</p><p className="mt-3 text-white/55">{error}</p></div></main>
   if(!state)return <main className="grid h-[100dvh] place-items-center overflow-hidden bg-[#080808] text-white"><p className="text-xl font-bold">Carregando painel…</p></main>
@@ -42,6 +42,7 @@ export function PublicPanelPage(){
   const compact=screenMode==='portrait'
   return <main className="h-[100dvh] overflow-hidden bg-[#080808] text-white">
     <div className={`mx-auto flex h-full w-full max-w-[2560px] flex-col ${compact?'p-2':'p-3 sm:p-4 xl:p-5'}`}>
+      {fullscreenWanted&&!fullscreen&&<div className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100"><span>O navegador saiu do modo tela cheia. O BINGOUP não altera isso automaticamente entre rodadas.</span><button type="button" onClick={()=>void toggleFullscreen()} className="shrink-0 rounded-lg bg-amber-300 px-3 py-1.5 font-black text-black">Restaurar tela cheia</button></div>}
       <header className={`flex shrink-0 items-center justify-between gap-2 border-b border-white/10 ${compact?'pb-2':'pb-3'}`}>
         <div className="min-w-0"><p className="truncate text-[10px] font-black uppercase tracking-[.24em] text-red-500 sm:text-xs">BINGOUP · {state.event_name}</p><h1 className={`mt-0.5 truncate font-black ${compact?'text-lg':'text-xl sm:text-2xl xl:text-3xl'}`}>{state.round_name}</h1></div>
         <div className="flex shrink-0 items-center gap-2"><div className="hidden text-right sm:block"><p className="text-xs font-black uppercase tracking-wide text-white/80">{statusLabel}</p><p className="text-[11px] text-white/45">Prêmio: {state.win_pattern_name}</p></div><span className={`size-2.5 rounded-full ${connected?'bg-emerald-400':'bg-amber-400'}`} title={connected?'Painel sincronizado':'Reconectando'}/><button type="button" onClick={()=>void toggleFullscreen()} className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold hover:bg-white/10">{fullscreen?'Sair da tela cheia':'Tela cheia'}</button></div>

@@ -57,7 +57,6 @@ export function subscribeToDraw(sessionId:string,onChange:()=>void){
   const channel=supabase.channel(`draw-${sessionId}-${crypto.randomUUID()}`)
     .on('postgres_changes',{event:'*',schema:'public',table:'draw_sessions',filter:`id=eq.${sessionId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'draw_numbers',filter:`session_id=eq.${sessionId}`},onChange)
-    .on('postgres_changes',{event:'*',schema:'public',table:'game_progress',filter:`session_id=eq.${sessionId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'winner_candidates',filter:`session_id=eq.${sessionId}`},onChange)
     .subscribe()
   return ()=>{void supabase.removeChannel(channel)}
