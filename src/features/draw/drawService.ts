@@ -58,11 +58,21 @@ export function subscribeToDraw(sessionId:string,onChange:()=>void){
   return ()=>{void supabase.removeChannel(channel)}
 }
 
-export type DrawProgressRow={session_id:string;physical_card_id:string;card_game_id:string;position:number;matched_count:number;missing_count:number;is_winner:boolean;completed_at:string|null}
+export type DrawProgressRow={session_id:string;physical_card_id:string;card_game_id:string;position:number;matched_count:number;missing_count:number;is_winner:boolean;completed_at:string|null;card_code:string|null}
 export type WinnerCandidateView={id:string;physical_card_id:string;card_game_id:string;status:string;detected_at:string;physical_cards:{code:string}|null;draw_session_games:{position:number}|null}
 
 export async function refreshDrawProgress(sessionId:string){const {data,error}=await supabase.rpc('refresh_draw_progress',{target_session_id:sessionId});if(error)throw error;return data as {one_away:number;two_away:number;winners:number;evaluated_games:number}}
-export async function listDrawProgress(sessionId:string):Promise<DrawProgressRow[]>{const {data,error}=await supabase.from('game_progress').select('session_id,physical_card_id,card_game_id,position,matched_count,missing_count,is_winner,completed_at').eq('session_id',sessionId).order('missing_count').order('position');if(error)throw error;return (data??[]) as DrawProgressRow[]}
+export async function listDrawProgress(sessionId:string):Promise<DrawProgressRow[]>{
+  const {data,error}=await supabase.from('game_progress').select('session_id,physical_card_id,card_game_id,position,matched_count,missing_count,is_winner,completed_at').eq('session_id',sessionId).order('missing_count').order('position')
+  if(error)throw error
+  const rows=(data??[]) as Omit<DrawProgressRow,'card_code'>[]
+  const cardIds=[...new Set(rows.map(row=>row.physical_card_id))]
+  if(!cardIds.length)return []
+  const {data:cards,error:cardError}=await supabase.from('physical_cards').select('id,code').in('id',cardIds)
+  if(cardError)throw cardError
+  const codes=new Map((cards??[]).map(card=>[card.id,card.code]))
+  return rows.map(row=>({...row,card_code:codes.get(row.physical_card_id)??null}))
+}
 export async function listWinnerCandidates(sessionId:string):Promise<WinnerCandidateView[]>{const {data,error}=await supabase.from('winner_candidates').select('id,physical_card_id,card_game_id,status,detected_at,physical_cards(code)').eq('session_id',sessionId).in('status',['detected','confirmed']).order('detected_at');if(error)throw error;const rows=(data??[]) as any[];const progress=await listDrawProgress(sessionId);return rows.map(row=>({...row,draw_session_games:{position:progress.find(p=>p.card_game_id===row.card_game_id)?.position??1}})) as WinnerCandidateView[]}
 
 export async function reopenEventForNextDraw(eventId:string){
