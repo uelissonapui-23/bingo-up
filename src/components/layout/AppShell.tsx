@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/app/providers/AuthProvider'
 import { useWorkspace } from '@/app/providers/WorkspaceProvider'
 import { Button } from '@/components/ui/Button'
@@ -11,6 +11,7 @@ const organizerNav = [
   ['/eventos', 'Eventos', 'calendar'],
   ['/cartelas', 'Cartelas', 'grid'],
   ['/vendedores', 'Vendedores', 'users'],
+  ['/operadores', 'Operadores', 'operator'],
   ['/vendas', 'Vendas', 'cart'],
   ['/sorteio', 'Sorteio', 'dice'],
   ['/historico', 'Histórico', 'clock'],
@@ -22,15 +23,24 @@ const sellerNav = [
   ['/configuracoes', 'Configurações', 'settings'],
 ] as const
 
+const operatorNav = [
+  ['/sorteio', 'Sorteio', 'dice'],
+  ['/configuracoes', 'Configurações', 'settings'],
+] as const
+
 const bottomOrganizerNav = organizerNav.filter(([path]) => ['/', '/eventos', '/cartelas', '/vendas'].includes(path))
 
 export function AppShell() {
   const { signOut } = useAuth()
   const { currentWorkspace, workspaces, selectWorkspace } = useWorkspace()
   const [menuOpen, setMenuOpen] = useState(false)
+  const location=useLocation()
   const isSeller=currentWorkspace?.membership.role==='seller'
-  const mainNav=isSeller?sellerNav:organizerNav
-  const bottomNav=isSeller?sellerNav:bottomOrganizerNav
+  const isOperator=currentWorkspace?.membership.role==='draw_operator'
+  const mainNav=isSeller?sellerNav:isOperator?operatorNav:organizerNav
+  const bottomNav=isSeller?sellerNav:isOperator?operatorNav:bottomOrganizerNav
+  const operatorPathAllowed=!isOperator||location.pathname==='/sorteio'||location.pathname==='/configuracoes'||/^\/eventos\/[^/]+\/(sorteio|painel-publico\/configuracao)$/.test(location.pathname)
+  if(!operatorPathAllowed)return <Navigate to="/sorteio" replace/>
 
   return <>
     <OfflineBanner />
@@ -49,7 +59,7 @@ export function AppShell() {
         </nav>
         <div className="bingoup-workspace-card">
           <div className="bingoup-avatar">{initials(currentWorkspace?.name)}</div>
-          <div className="min-w-0"><p>Organizador ativo</p><strong>{currentWorkspace?.name ?? 'BINGOUP'}</strong></div>
+          <div className="min-w-0"><p>{isOperator?'Operação ativa':'Organizador ativo'}</p><strong>{currentWorkspace?.name ?? 'BINGOUP'}</strong></div>
         </div>
       </aside>
 
@@ -73,7 +83,7 @@ export function AppShell() {
             <span className="bingoup-phase">Fase 12</span>
             <div className="hidden min-w-0 text-right sm:block">
               <p className="truncate text-sm font-bold text-white">{currentWorkspace?.name}</p>
-              <p className="text-xs text-slate-400">{isSeller?'Vendedor':'Organizador'}</p>
+              <p className="text-xs text-slate-400">{isSeller?'Vendedor':isOperator?'Operador de sorteio':'Organizador'}</p>
             </div>
             <Button variant="secondary" onClick={() => void signOut()}>Sair</Button>
           </div>
@@ -130,6 +140,7 @@ function NavIcon({ name }: { name: string }) {
     settings: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.4-3.5c0-.5-.05-.95-.14-1.4l2.02-1.57-2-3.46-2.45.98a8.1 8.1 0 0 0-2.42-1.4L14 2.5h-4l-.4 2.65a8.1 8.1 0 0 0-2.42 1.4l-2.45-.98-2 3.46 2.02 1.57A7.4 7.4 0 0 0 4.6 12c0 .5.05.95.14 1.4l-2.02 1.57 2 3.46 2.45-.98a8.1 8.1 0 0 0 2.42 1.4L10 21.5h4l.4-2.65a8.1 8.1 0 0 0 2.42-1.4l2.45.98 2-3.46-2.02-1.57c.1-.45.15-.9.15-1.4Z',
     menu: 'M4 6h16M4 12h16M4 18h16',
     users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87m0-7.26a4 4 0 0 1 0 7.75',
+    operator: 'M12 3a9 9 0 1 0 9 9M12 7v5l3 2M18 4v4h-4',
   }
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paths[name]} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
 }

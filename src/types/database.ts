@@ -1,5 +1,5 @@
 export type PlatformRole = 'platform_owner' | 'platform_admin'
-export type WorkspaceRole = 'organizer_owner' | 'organizer_admin' | 'event_manager' | 'seller'
+export type WorkspaceRole = 'organizer_owner' | 'organizer_admin' | 'event_manager' | 'seller' | 'draw_operator'
 export type MembershipStatus = 'invited' | 'active' | 'suspended' | 'revoked'
 export type EventStatus = 'draft' | 'sales_open' | 'sales_paused' | 'ready' | 'drawing' | 'paused' | 'finished' | 'canceled' | 'archived'
 export type EventSalesMode = 'open_pool' | 'assigned_cards'
