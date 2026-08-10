@@ -153,6 +153,15 @@ export async function updateEventSettings(workspaceId: string, eventId: string, 
   if (error) throw error
 }
 
+
+export async function updatePublicPanelAppearance(workspaceId:string,eventId:string,appearance:Record<string,unknown>){
+  const {data,error}=await supabase.from('event_settings').select('settings').eq('workspace_id',workspaceId).eq('event_id',eventId).single()
+  if(error)throw error
+  const current=(data?.settings&&typeof data.settings==='object'?data.settings:{}) as Record<string,unknown>
+  const {error:updateError}=await supabase.from('event_settings').update({settings:{...current,public_panel_appearance:appearance}}).eq('workspace_id',workspaceId).eq('event_id',eventId)
+  if(updateError)throw updateError
+}
+
 export async function uploadEventBanner(workspaceId: string, eventId: string, file: File) {
   const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
   const path = `${workspaceId}/${eventId}/banner-${Date.now()}.${extension}`

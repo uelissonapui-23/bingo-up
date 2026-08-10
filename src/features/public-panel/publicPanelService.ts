@@ -1,3 +1,4 @@
+import type {PublicPanelAppearance} from '@/domain/draw/publicPanelAppearance'
 import { supabase } from '@/services/supabase/client'
 
 export type PublicPanelState = {
@@ -18,8 +19,10 @@ export type PublicPanelState = {
   possible_bingo: boolean
   confirmed_bingo: boolean
   confirmed_winners: number
+  winner_labels: string[]
   win_pattern_name: string
   updated_at: string
+  appearance: PublicPanelAppearance
 }
 
 export async function getPublicPanelState(publicToken:string):Promise<PublicPanelState>{
