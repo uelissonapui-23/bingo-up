@@ -12,7 +12,7 @@ export const moduleRoutes: ModuleRoute[] = [
   { path: '/vendedores', module: 4, title: 'Vendedores', description: 'Convites, vínculos e links por evento.' },
   { path: '/regras-cartelas', module: 5, title: 'Regras e templates', description: 'Modelos 1 em 1, 2 em 1, 3 em 1 e layouts.' },
   { path: '/gerador', module: 6, title: 'Motor de geração', description: 'Unicidade, capacidade e repetição controlada.' },
-  { path: '/cartelas', module: 7, title: 'Cartelas e impressão', description: 'Lotes, visualização, PDF, impressão e QR.' },
+  { path: '/cartelas', module: 7, title: 'Cartelas', description: 'Gerenciamento de cartelas geradas, visualização, impressão e PDF.' },
   { path: '/vendas', module: 8, title: 'Vendas', description: 'Venda individual, lote e área do vendedor.' },
   { path: '/sorteio', module: 9, title: 'Sorteio', description: 'Sorteio acionado manualmente e histórico.' },
   { path: '/acompanhamento', module: 10, title: 'Acompanhamento', description: 'Proximidade e detecção automática de prêmio.' },
