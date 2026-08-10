@@ -9,7 +9,7 @@ import {ForgotPasswordPage} from '@/features/auth/ForgotPasswordPage'
 import {ResetPasswordPage} from '@/features/auth/ResetPasswordPage'
 import {WorkspaceOnboardingPage} from '@/features/workspace/WorkspaceOnboardingPage'
 
-const DashboardPage=lazy(()=>import('@/features/dashboard/DashboardPage').then(m=>({default:m.DashboardPage})))
+const RoleHomePage=lazy(()=>import('@/features/dashboard/RoleHomePage').then(m=>({default:m.RoleHomePage})))
 const AccountPage=lazy(()=>import('@/features/account/AccountPage').then(m=>({default:m.AccountPage})))
 const PublicPanelPage=lazy(()=>import('@/features/public-panel/PublicPanelPage').then(m=>({default:m.PublicPanelPage})))
 const EventsPage=lazy(()=>import('@/features/events/EventsPage').then(m=>({default:m.EventsPage})))
@@ -24,6 +24,8 @@ const CardDetailPage=lazy(()=>import('@/features/cards/CardDetailPage').then(m=>
 const BatchPrintPage=lazy(()=>import('@/features/cards/BatchPrintPage').then(m=>({default:m.BatchPrintPage})))
 const PublicCardPlaceholderPage=lazy(()=>import('@/features/cards/PublicCardPlaceholderPage').then(m=>({default:m.PublicCardPlaceholderPage})))
 const SalesPage=lazy(()=>import('@/features/sales/SalesPage').then(m=>({default:m.SalesPage})))
+const SellersPage=lazy(()=>import('@/features/sellers/SellersPage').then(m=>({default:m.SellersPage})))
+const SellerInvitePage=lazy(()=>import('@/features/sellers/SellerInvitePage').then(m=>({default:m.SellerInvitePage})))
 const DrawHomePage=lazy(()=>import('@/features/draw/DrawHomePage').then(m=>({default:m.DrawHomePage})))
 const DrawPage=lazy(()=>import('@/features/draw/DrawPage').then(m=>({default:m.DrawPage})))
 const HistoryPage=lazy(()=>import('@/features/history/HistoryPage').then(m=>({default:m.HistoryPage})))
@@ -37,10 +39,10 @@ export function AppRouter(){
   return <Suspense fallback={<RouteLoading/>}><Routes>
     <Route path="/entrar" element={<LoginPage/>}/><Route path="/criar-conta" element={<RegisterPage/>}/><Route path="/esqueci-senha" element={<ForgotPasswordPage/>}/><Route path="/redefinir-senha" element={<ResetPasswordPage/>}/>
     <Route path="/painel-publico/:publicSessionId" element={<PublicPanelPage/>}/><Route path="/c/:token" element={<PublicCardPlaceholderPage/>}/>
-    <Route element={<RequireAuth/>}><Route path="/configurar-organizador" element={<div className="bingoup-app min-h-dvh p-4"><WorkspaceOnboardingPage/></div>}/><Route element={<RequireWorkspace/>}><Route element={<AppShell/>}>
-      <Route index element={<DashboardPage/>}/>
+    <Route element={<RequireAuth/>}><Route path="/convites/vendedor/:token" element={<SellerInvitePage/>}/><Route path="/configurar-organizador" element={<div className="bingoup-app min-h-dvh p-4"><WorkspaceOnboardingPage/></div>}/><Route element={<RequireWorkspace/>}><Route element={<AppShell/>}>
+      <Route index element={<RoleHomePage/>}/>
       <Route path="eventos" element={<EventsPage/>}/><Route path="eventos/novo" element={<NewEventPage/>}/><Route path="eventos/:eventId" element={<EventDetailPage/>}/><Route path="eventos/:eventId/editar" element={<EditEventPage/>}/><Route path="eventos/:eventId/cartelas/configuracao" element={<CardConfigurationPage/>}/><Route path="eventos/:eventId/cartelas/gerar" element={<CardGeneratorPage/>}/><Route path="eventos/:eventId/cartelas" element={<CardsPage/>}/><Route path="eventos/:eventId/cartelas/:cardId" element={<CardDetailPage/>}/><Route path="eventos/:eventId/cartelas/lote/:batchId/imprimir" element={<BatchPrintPage/>}/><Route path="eventos/:eventId/vendas" element={<SalesPage/>}/><Route path="eventos/:eventId/sorteio" element={<DrawPage/>}/>
-      <Route path="cartelas" element={<CardsHubPage/>}/><Route path="vendas" element={<SalesPage/>}/><Route path="sorteio" element={<DrawHomePage/>}/><Route path="historico" element={<HistoryPage/>}/><Route path="eventos/:eventId/historico" element={<EventHistoryPage/>}/><Route path="configuracoes" element={<AccountPage/>}/><Route path="configuracoes/sistema" element={<SystemSettingsPage/>}/>
+      <Route path="cartelas" element={<CardsHubPage/>}/><Route path="vendedores" element={<SellersPage/>}/><Route path="vendas" element={<SalesPage/>}/><Route path="sorteio" element={<DrawHomePage/>}/><Route path="historico" element={<HistoryPage/>}/><Route path="eventos/:eventId/historico" element={<EventHistoryPage/>}/><Route path="configuracoes" element={<AccountPage/>}/><Route path="configuracoes/sistema" element={<SystemSettingsPage/>}/>
     </Route></Route></Route>
     <Route path="*" element={<NotFoundPage/>}/>
   </Routes></Suspense>
