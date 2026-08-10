@@ -47,7 +47,7 @@ export async function createCardTemplate(workspaceId:string,eventId:string,input
   const options:CardTemplateOptions=input.options??{version:1}
   const uploaded:string[]=[]
   try{
-    if(input.artworkFile){const path=`${workspaceId}/${eventId}/artworks/${crypto.randomUUID()}.webp`;await uploadAsset(path,input.artworkFile);uploaded.push(path);options.artwork={...(options.artwork??{zoom:1,offsetX:0,offsetY:0,quality:'standard'}),path}}
+    if(input.artworkFile){const path=`${workspaceId}/${eventId}/artworks/${crypto.randomUUID()}.webp`;await uploadAsset(path,input.artworkFile);uploaded.push(path);options.artwork={...(options.artwork??{zoom:1,offsetX:0,offsetY:0,quality:'standard',fit:'cover'}),path}}
     if(input.wildcardFile){const path=`${workspaceId}/${eventId}/wildcards/${crypto.randomUUID()}.webp`;await uploadAsset(path,input.wildcardFile);uploaded.push(path);options.wildcard={...(options.wildcard??{kind:'custom',scale:1}),kind:'custom',path}}
     const {data,error}=await supabase.rpc('create_card_template',{target_workspace_id:workspaceId,target_event_id:eventId,template_name:input.name,template_format:input.format,template_layout_key:input.layoutKey,template_orientation:input.orientation,template_page_size:input.pageSize,template_banner_position:input.bannerPosition,template_banner_height_mm:input.bannerHeightMm,template_options:options,make_default:input.isDefault})
     if(error)throw error
@@ -66,7 +66,7 @@ export async function updateCardTemplate(workspaceId:string,eventId:string,templ
   const options:CardTemplateOptions=input.options??{version:1}
   const uploaded:string[]=[]
   try{
-    if(input.artworkFile){const path=`${workspaceId}/${eventId}/artworks/${crypto.randomUUID()}.webp`;await uploadAsset(path,input.artworkFile);uploaded.push(path);options.artwork={...(options.artwork??{zoom:1,offsetX:0,offsetY:0,quality:'standard'}),path}}
+    if(input.artworkFile){const path=`${workspaceId}/${eventId}/artworks/${crypto.randomUUID()}.webp`;await uploadAsset(path,input.artworkFile);uploaded.push(path);options.artwork={...(options.artwork??{zoom:1,offsetX:0,offsetY:0,quality:'standard',fit:'cover'}),path}}
     else if(!input.removeArtwork&&options.artwork&&oldArtworkPath)options.artwork={...options.artwork,path:oldArtworkPath}
     else if(input.removeArtwork)delete options.artwork
     if(input.wildcardFile){const path=`${workspaceId}/${eventId}/wildcards/${crypto.randomUUID()}.webp`;await uploadAsset(path,input.wildcardFile);uploaded.push(path);options.wildcard={...(options.wildcard??{kind:'custom',scale:1}),kind:'custom',path}}

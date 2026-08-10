@@ -33,7 +33,7 @@ export async function downloadLightweightCardsPdf(options:PdfOptions){
   const backgroundUrl=getCardAssetUrl(art?.path)
   const wildcard=templateOptions.wildcard??{kind:'star',scale:1}
   const wildcardUrl=wildcard.kind==='custom'?getCardAssetUrl(wildcard.path):null
-  const background=backgroundUrl?await prepareArtworkJpeg(backgroundUrl,art?.quality??'standard',art?.zoom??1,art?.offsetX??0,art?.offsetY??0):null
+  const background=backgroundUrl?await prepareArtworkJpeg(backgroundUrl,art?.quality??'standard',art?.fit??'cover',art?.zoom??1,art?.offsetX??0,art?.offsetY??0):null
   const customWildcard=wildcardUrl?await prepareSquareJpeg(wildcardUrl):null
   const bytes=buildPdf(options.cards,{paperWidthMm:spec.width,paperHeightMm:spec.height,grid,perSheet:options.perSheet,marginMm:margin,gapMm:gap,background,customWildcard,wildcard})
   const blob=new Blob([bytes],{type:'application/pdf'})
@@ -43,14 +43,14 @@ export async function downloadLightweightCardsPdf(options:PdfOptions){
   return blob.size
 }
 
-async function prepareArtworkJpeg(url:string,quality:'light'|'standard'|'high',zoom:number,offsetX:number,offsetY:number):Promise<PreparedJpeg>{
+async function prepareArtworkJpeg(url:string,quality:'light'|'standard'|'high',fit:'cover'|'contain',zoom:number,offsetX:number,offsetY:number):Promise<PreparedJpeg>{
   const target=quality==='light'?{w:900,h:1273,q:.68}:quality==='high'?{w:1754,h:2480,q:.84}:{w:1240,h:1754,q:.76}
   const bitmap=await fetchBitmap(url)
   const canvas=document.createElement('canvas');canvas.width=target.w;canvas.height=target.h
   const ctx=canvas.getContext('2d',{alpha:false});if(!ctx){bitmap.close();throw new Error('Não foi possível preparar a arte para o PDF.')}
   ctx.fillStyle='#fff';ctx.fillRect(0,0,target.w,target.h)
-  const cover=Math.max(target.w/bitmap.width,target.h/bitmap.height)
-  const drawW=bitmap.width*cover*zoom,drawH=bitmap.height*cover*zoom
+  const baseScale=fit==='contain'?Math.min(target.w/bitmap.width,target.h/bitmap.height):Math.max(target.w/bitmap.width,target.h/bitmap.height)
+  const drawW=bitmap.width*baseScale*zoom,drawH=bitmap.height*baseScale*zoom
   const x=(target.w-drawW)/2+(offsetX/100)*drawW
   const y=(target.h-drawH)/2+(offsetY/100)*drawH
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(bitmap,x,y,drawW,drawH);bitmap.close()
