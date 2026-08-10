@@ -12,6 +12,7 @@ type PdfOptions={
   perSheet:number
   marginMm?:number
   gapMm?:number
+  cropMarks?:boolean
   fileName:string
 }
 
@@ -35,7 +36,7 @@ export async function downloadLightweightCardsPdf(options:PdfOptions){
   const wildcardUrl=wildcard.kind==='custom'?getCardAssetUrl(wildcard.path):null
   const background=backgroundUrl?await prepareArtworkJpeg(backgroundUrl,art?.quality??'standard',art?.fit??'cover',art?.zoom??1,art?.offsetX??0,art?.offsetY??0):null
   const customWildcard=wildcardUrl?await prepareSquareJpeg(wildcardUrl):null
-  const bytes=buildPdf(options.cards,{paperWidthMm:spec.width,paperHeightMm:spec.height,grid,perSheet:options.perSheet,marginMm:margin,gapMm:gap,background,customWildcard,wildcard})
+  const bytes=buildPdf(options.cards,{paperWidthMm:spec.width,paperHeightMm:spec.height,grid,perSheet:options.perSheet,marginMm:margin,gapMm:gap,background,customWildcard,wildcard,cropMarks:options.cropMarks??true})
   const blob=new Blob([bytes],{type:'application/pdf'})
   const url=URL.createObjectURL(blob)
   const a=document.createElement('a');a.href=url;a.download=options.fileName;a.click()
@@ -70,7 +71,7 @@ async function prepareSquareJpeg(url:string):Promise<PreparedJpeg>{
 async function fetchBitmap(url:string){const response=await fetch(url,{cache:'force-cache'});if(!response.ok)throw new Error('Não foi possível carregar a arte da cartela.');return createImageBitmap(await response.blob())}
 async function canvasJpeg(canvas:HTMLCanvasElement,quality:number):Promise<PreparedJpeg>{const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(v=>v?resolve(v):reject(new Error('Falha ao compactar imagem.')),'image/jpeg',quality));return{bytes:new Uint8Array(await blob.arrayBuffer()),width:canvas.width,height:canvas.height}}
 
-function buildPdf(cards:PhysicalCardView[],ctx:{paperWidthMm:number;paperHeightMm:number;grid:ReturnType<typeof bestGrid>;perSheet:number;marginMm:number;gapMm:number;background:PreparedJpeg|null;customWildcard:PreparedJpeg|null;wildcard:CardWildcardOptions}){
+function buildPdf(cards:PhysicalCardView[],ctx:{paperWidthMm:number;paperHeightMm:number;grid:ReturnType<typeof bestGrid>;perSheet:number;marginMm:number;gapMm:number;background:PreparedJpeg|null;customWildcard:PreparedJpeg|null;wildcard:CardWildcardOptions;cropMarks:boolean}){
   const objects:Array<Uint8Array|null>=[null]
   const reserve=()=>{objects.push(null);return objects.length-1}
   const setText=(id:number,text:string)=>{objects[id]=enc.encode(text)}
@@ -88,20 +89,35 @@ function buildPdf(cards:PhysicalCardView[],ctx:{paperWidthMm:number;paperHeightM
   return assemblePdf(objects,catalogId)
 }
 
-function pageContent(cards:PhysicalCardView[],ctx:{paperWidthMm:number;paperHeightMm:number;grid:ReturnType<typeof bestGrid>;perSheet:number;marginMm:number;gapMm:number;wildcard:CardWildcardOptions},bg:PdfImageRef|null,wc:PdfImageRef|null){
+function pageContent(cards:PhysicalCardView[],ctx:{paperWidthMm:number;paperHeightMm:number;grid:ReturnType<typeof bestGrid>;perSheet:number;marginMm:number;gapMm:number;wildcard:CardWildcardOptions;cropMarks:boolean},bg:PdfImageRef|null,wc:PdfImageRef|null){
   const out:string[]=['q','1 1 1 rg',`0 0 ${mm(ctx.paperWidthMm)} ${mm(ctx.paperHeightMm)} re f`,'Q']
-  cards.forEach((card,index)=>{const col=index%ctx.grid.cols,row=Math.floor(index/ctx.grid.cols);const xMm=ctx.marginMm+col*(ctx.grid.cardWidth+ctx.gapMm),topMm=ctx.marginMm+row*(ctx.grid.cardHeight+ctx.gapMm),yMm=ctx.paperHeightMm-topMm-ctx.grid.cardHeight;drawCard(out,card,xMm,yMm,ctx.grid.cardWidth,ctx.grid.cardHeight,bg,wc,ctx.wildcard)})
+  const usedW=ctx.grid.cols*ctx.grid.cardWidth+Math.max(0,ctx.grid.cols-1)*ctx.gapMm
+  const usedH=ctx.grid.rows*ctx.grid.cardHeight+Math.max(0,ctx.grid.rows-1)*ctx.gapMm
+  const startX=Math.max(ctx.marginMm,(ctx.paperWidthMm-usedW)/2)
+  const startTop=Math.max(ctx.marginMm,(ctx.paperHeightMm-usedH)/2)
+  cards.forEach((card,index)=>{const col=index%ctx.grid.cols,row=Math.floor(index/ctx.grid.cols);const xMm=startX+col*(ctx.grid.cardWidth+ctx.gapMm),topMm=startTop+row*(ctx.grid.cardHeight+ctx.gapMm),yMm=ctx.paperHeightMm-topMm-ctx.grid.cardHeight;drawCard(out,card,xMm,yMm,ctx.grid.cardWidth,ctx.grid.cardHeight,bg,wc,ctx.wildcard);if(ctx.cropMarks)drawCropMarks(out,xMm,yMm,ctx.grid.cardWidth,ctx.grid.cardHeight,ctx.gapMm)})
   return out.join('\n')
 }
 
 function drawCard(out:string[],card:PhysicalCardView,xMm:number,yMm:number,wMm:number,hMm:number,bg:PdfImageRef|null,wc:PdfImageRef|null,wildcard:CardWildcardOptions){
   const x=mm(xMm),y=mm(yMm),w=mm(wMm),h=mm(hMm)
   out.push('q',`${x} ${y} ${w} ${h} re W n`)
-  if(bg)out.push(`${w} 0 0 ${h} ${x} ${y} cm /${bg.name} Do`)
+  if(bg)out.push('q',`${w} 0 0 ${h} ${x} ${y} cm /${bg.name} Do`,'Q')
   else out.push('1 1 1 rg',`${x} ${y} ${w} ${h} re f`)
   const preset=getCardLayoutPreset(card.template.layout_key,Math.min(3,card.physical_format) as 1|2|3)
   preset?.gameAreas.forEach((area,index)=>{const game=card.games[index];if(!game)return;const gx=x+w*area.x/100,gw=w*area.width/100,gh=h*area.height/100,gy=y+h*(1-(area.y+area.height)/100);drawGame(out,game.definition.cells,card.rule.grid_columns,card.rule.column_definitions.map(c=>c.label),gx,gy,gw,gh,wildcard,wc)})
   out.push('Q')
+}
+
+function drawCropMarks(out:string[],xMm:number,yMm:number,wMm:number,hMm:number,gapMm:number){
+  const x=mm(xMm),y=mm(yMm),w=mm(wMm),h=mm(hMm)
+  const len=mm(Math.max(1.2,Math.min(2.5,gapMm>0?gapMm*.48:1.8)))
+  const inset=mm(.18)
+  out.push('0.62 0.64 0.68 RG','0.32 w')
+  out.push(`${x-len} ${y} m ${x-inset} ${y} l S`,`${x} ${y-len} m ${x} ${y-inset} l S`)
+  out.push(`${x+w+inset} ${y} m ${x+w+len} ${y} l S`,`${x+w} ${y-len} m ${x+w} ${y-inset} l S`)
+  out.push(`${x-len} ${y+h} m ${x-inset} ${y+h} l S`,`${x} ${y+h+inset} m ${x} ${y+h+len} l S`)
+  out.push(`${x+w+inset} ${y+h} m ${x+w+len} ${y+h} l S`,`${x+w} ${y+h+inset} m ${x+w} ${y+h+len} l S`)
 }
 
 function drawGame(out:string[],cells:Array<number|null>,cols:number,labels:string[],x:number,y:number,w:number,h:number,wildcard:CardWildcardOptions,wc:PdfImageRef|null){

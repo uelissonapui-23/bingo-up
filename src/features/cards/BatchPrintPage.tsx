@@ -7,38 +7,162 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { PrintableCard } from '@/components/cards/PrintableCard'
 import { getEvent } from '@/features/events/eventService'
-import { allowedCardsPerSheet,bestGrid,chunk,paperSpec,type PrintOrientation,type PrintPaper } from '@/domain/cards/imposition'
+import { allowedCardsPerSheet,chunk,paperSpec,smartGrid,type PrintOrientationMode,type PrintPaper } from '@/domain/cards/imposition'
 import { downloadLightweightCardsPdf } from '@/domain/cards/lightPdf'
 import { getCardBatch,listBatchCardsForPrint,registerPrint,type PhysicalCardView } from './cardService'
 import type { CardBatch,EventWithSettings } from '@/types/database'
 
+const MARGIN_MM=6
+
 export function BatchPrintPage(){
-  const {eventId,batchId}=useParams();const {currentWorkspace}=useWorkspace();const nav=useNavigate()
-  const [event,setEvent]=useState<EventWithSettings|null>(null);const [batch,setBatch]=useState<CardBatch|null>(null);const [cards,setCards]=useState<PhysicalCardView[]>([])
-  const [paper,setPaper]=useState<PrintPaper>('A4');const [orientation,setOrientation]=useState<PrintOrientation>('portrait');const [perSheet,setPerSheet]=useState(2);const [sheetsPerPdf,setSheetsPerPdf]=useState(25);const [part,setPart]=useState(1)
-  const [loading,setLoading]=useState(true);const [preparing,setPreparing]=useState(false);const [generating,setGenerating]=useState(false);const [previewCard,setPreviewCard]=useState<PhysicalCardView|null>(null);const [expanded,setExpanded]=useState(false);const [error,setError]=useState<string|null>(null);const [notice,setNotice]=useState<string|null>(null)
-  const allowed=useMemo(()=>allowedCardsPerSheet(paper,orientation),[paper,orientation])
+  const {eventId,batchId}=useParams()
+  const {currentWorkspace}=useWorkspace()
+  const nav=useNavigate()
+  const [event,setEvent]=useState<EventWithSettings|null>(null)
+  const [batch,setBatch]=useState<CardBatch|null>(null)
+  const [cards,setCards]=useState<PhysicalCardView[]>([])
+  const [paper,setPaper]=useState<PrintPaper>('A4')
+  const [orientationMode,setOrientationMode]=useState<PrintOrientationMode>('auto')
+  const [perSheet,setPerSheet]=useState(2)
+  const [gapMm,setGapMm]=useState(3)
+  const [cropMarks,setCropMarks]=useState(true)
+  const [sheetsPerPdf,setSheetsPerPdf]=useState(25)
+  const [part,setPart]=useState(1)
+  const [loading,setLoading]=useState(true)
+  const [preparing,setPreparing]=useState(false)
+  const [generating,setGenerating]=useState(false)
+  const [previewCard,setPreviewCard]=useState<PhysicalCardView|null>(null)
+  const [expanded,setExpanded]=useState(false)
+  const [error,setError]=useState<string|null>(null)
+  const [notice,setNotice]=useState<string|null>(null)
+
+  const allowed=useMemo(()=>allowedCardsPerSheet(paper,orientationMode,MARGIN_MM,gapMm),[paper,orientationMode,gapMm])
   useEffect(()=>{if(!allowed.includes(perSheet))setPerSheet(allowed.at(-1)??1)},[allowed,perSheet])
-  useEffect(()=>setPart(1),[paper,orientation,perSheet,sheetsPerPdf])
-  useEffect(()=>{setCards([]);setNotice(null)},[paper,orientation,perSheet,sheetsPerPdf,part])
-  const loadHeader=useCallback(async()=>{if(!currentWorkspace||!eventId||!batchId)return;setLoading(true);try{const [e,b,preview]=await Promise.all([getEvent(currentWorkspace.id,eventId),getCardBatch(currentWorkspace.id,eventId,batchId),listBatchCardsForPrint(currentWorkspace.id,eventId,batchId,0,1)]);setEvent(e);setBatch(b);setPreviewCard(preview[0]??null)}catch{setError('Não foi possível preparar o lote para impressão.')}finally{setLoading(false)}},[currentWorkspace,eventId,batchId])
+  const grid=useMemo(()=>smartGrid(perSheet,paper,orientationMode,MARGIN_MM,gapMm),[perSheet,paper,orientationMode,gapMm])
+  const orientation=grid.orientation
+  const spec=paperSpec(paper,orientation)
+
+  useEffect(()=>setPart(1),[paper,orientationMode,perSheet,gapMm,sheetsPerPdf])
+  useEffect(()=>{setCards([]);setNotice(null)},[paper,orientationMode,perSheet,gapMm,sheetsPerPdf,part])
+
+  const loadHeader=useCallback(async()=>{
+    if(!currentWorkspace||!eventId||!batchId)return
+    setLoading(true)
+    try{
+      const [e,b,preview]=await Promise.all([
+        getEvent(currentWorkspace.id,eventId),
+        getCardBatch(currentWorkspace.id,eventId,batchId),
+        listBatchCardsForPrint(currentWorkspace.id,eventId,batchId,0,1),
+      ])
+      setEvent(e)
+      setBatch(b)
+      setPreviewCard(preview[0]??null)
+    }catch{
+      setError('Não foi possível preparar o lote para impressão.')
+    }finally{
+      setLoading(false)
+    }
+  },[currentWorkspace,eventId,batchId])
+
   useEffect(()=>{void loadHeader()},[loadHeader])
-  const totalCards=batch?.generated_cards??0,totalSheets=Math.ceil(totalCards/perSheet),totalParts=Math.max(1,Math.ceil(totalSheets/Math.max(1,sheetsPerPdf))),cardsPerPart=perSheet*Math.max(1,sheetsPerPdf),offset=(part-1)*cardsPerPart
-  const grid=bestGrid(perSheet,paper,orientation),spec=paperSpec(paper,orientation),sheets=chunk(cards,perSheet)
-  async function loadCurrentPart(){if(!currentWorkspace||!eventId||!batchId)return [] as PhysicalCardView[];const loaded=await listBatchCardsForPrint(currentWorkspace.id,eventId,batchId,offset,Math.min(cardsPerPart,500));setCards(loaded);return loaded}
-  async function prepare(){setPreparing(true);setError(null);setNotice(null);try{await loadCurrentPart()}catch{setError('Não foi possível carregar este bloco de cartelas.')}finally{setPreparing(false)}}
-  async function downloadPdf(){if(!batchId||!batch)return;setGenerating(true);setError(null);setNotice(null);try{const current=cards.length?cards:await loadCurrentPart();if(!current.length)throw new Error('Nenhuma cartela encontrada neste arquivo.');const name=`BINGOUP-${safeName(event?.name??'evento')}-${safeName(batch.series_code)}-PDF-${String(part).padStart(2,'0')}-de-${String(totalParts).padStart(2,'0')}.pdf`;const size=await downloadLightweightCardsPdf({cards:current,paper,orientation,perSheet,fileName:name});try{await registerPrint(batchId,current.map(c=>c.id))}catch{setNotice(`PDF baixado (${formatBytes(size)}), mas o histórico de impressão não pôde ser atualizado.`);return}setNotice(`PDF pronto e baixado: ${name} · ${formatBytes(size)}. A arte de fundo foi embutida uma única vez e reutilizada nas páginas.`)}catch(e){setError(e instanceof Error?e.message:'Não foi possível gerar o PDF.')}finally{setGenerating(false)}}
-  if(loading)return <Card>Preparando impressão…</Card>;if(error&&!batch)return <Card>{error}</Card>;if(!event||!batch)return <Card>Lote indisponível.</Card>
-  const style=`@media print{@page{size:${spec.width}mm ${spec.height}mm;margin:0}html,body{background:#fff!important}.imposition-page{width:${spec.width}mm!important;height:${spec.height}mm!important;padding:6mm!important;grid-template-columns:repeat(${grid.cols},${grid.cardWidth}mm)!important;grid-auto-rows:${grid.cardHeight}mm!important;gap:3mm!important;align-content:start;justify-content:center}}`
-  return <div className="space-y-5"><style>{style}</style><div className="no-print"><div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"><div><p className="text-sm font-semibold text-red-400">PDF pronto para impressão</p><h1 className="text-3xl font-black">Gerar PDF das cartelas</h1><p className="mt-1 max-w-3xl text-sm text-slate-500">O BINGOUP gera o arquivo PDF diretamente. A arte de fundo é compactada e gravada uma única vez no PDF; números, linhas e coringa são desenhados como elementos leves e nítidos.</p></div><Button variant="secondary" onClick={()=>nav(-1)}>Voltar</Button></div>
-  {previewCard&&<Card className="mt-5"><div className="grid gap-5 lg:grid-cols-[minmax(0,320px)_1fr] lg:items-center"><button type="button" onClick={()=>setExpanded(true)} className="group mx-auto block w-full max-w-[300px] cursor-zoom-in rounded-2xl border border-slate-700 bg-slate-900 p-2 transition hover:border-red-500/70" aria-label="Abrir cartela em tamanho maior"><div className="aspect-[210/297] overflow-hidden rounded-xl bg-white"><PrintableCard card={previewCard} event={event}/></div><p className="mt-2 text-center text-xs font-bold text-slate-300">Cartela {previewCard.code} · toque para ampliar</p></button><div><p className="text-xs font-black uppercase tracking-[.14em] text-red-400">Confira antes de gerar</p><h2 className="mt-1 text-2xl font-black">Miniatura real da cartela</h2><p className="mt-2 max-w-xl text-sm text-slate-400">Esta é uma cartela real do lote, já usando a arte de fundo, o posicionamento dos jogos, os números e o coringa salvos. Amplie para conferir detalhes antes de baixar o PDF.</p><div className="mt-4"><Button variant="secondary" onClick={()=>setExpanded(true)}>Expandir cartela</Button></div></div></div></Card>}
-  {expanded&&previewCard&&<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Cartela ampliada" onClick={()=>setExpanded(false)}><div className="flex h-full max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between gap-3 border-b border-slate-800 p-3 sm:p-4"><div><p className="font-black text-white">Cartela {previewCard.code}</p><p className="text-xs text-slate-400">Prévia ampliada antes do PDF</p></div><Button variant="secondary" onClick={()=>setExpanded(false)}>Fechar</Button></div><div className="min-h-0 flex-1 overflow-auto p-3 sm:p-6"><div className="mx-auto w-full max-w-[760px]"><div className="aspect-[210/297] overflow-hidden rounded-xl bg-white shadow-2xl"><PrintableCard card={previewCard} event={event}/></div></div></div></div></div>}
-  <Card className="mt-5"><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5"><label className="text-sm font-semibold">Tamanho da folha<Select className="mt-1" value={paper} onChange={e=>setPaper(e.target.value as PrintPaper)}><option value="A5">A5</option><option value="A4">A4</option><option value="A3">A3</option><option value="letter">Carta</option><option value="legal">Ofício / Legal</option></Select></label><label className="text-sm font-semibold">Orientação<Select className="mt-1" value={orientation} onChange={e=>setOrientation(e.target.value as PrintOrientation)}><option value="portrait">Retrato</option><option value="landscape">Paisagem</option></Select></label><label className="text-sm font-semibold">Cartelas por folha<Select className="mt-1" value={perSheet} onChange={e=>setPerSheet(Number(e.target.value))}>{allowed.map(v=><option key={v} value={v}>{v} por folha</option>)}</Select></label><label className="text-sm font-semibold">Folhas por PDF<Input className="mt-1" type="number" min={1} max={50} value={sheetsPerPdf} onChange={e=>setSheetsPerPdf(Math.max(1,Math.min(50,Number(e.target.value))))}/></label><label className="text-sm font-semibold">Arquivo<Select className="mt-1" value={part} onChange={e=>setPart(Number(e.target.value))}>{Array.from({length:totalParts},(_,i)=><option key={i+1} value={i+1}>PDF {i+1} de {totalParts}</option>)}</Select></label></div>
-  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Cartelas" value={totalCards.toLocaleString('pt-BR')}/><Metric label="Folhas" value={totalSheets.toLocaleString('pt-BR')}/><Metric label="Arquivos PDF" value={totalParts.toLocaleString('pt-BR')}/><Metric label="Cartela aproximada" value={`${grid.cardWidth.toFixed(0)} × ${grid.cardHeight.toFixed(0)} mm`}/></div>
-  <div className="mt-4 rounded-xl border border-emerald-900/50 bg-emerald-950/20 p-3 text-xs text-emerald-200"><b>PDF leve:</b> a imagem da arte não é repetida como uma imagem completa em cada cartela. O arquivo reutiliza o mesmo fundo e mantém os jogos em desenho vetorial/texto, reduzindo peso e melhorando a abertura na gráfica e na impressão.</div>
-  <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-slate-500">Cada arquivo terá no máximo {sheetsPerPdf} folha(s). Se houver mais folhas, escolha o próximo PDF no campo “Arquivo”.</p><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={preparing||generating} onClick={()=>void prepare()}>{preparing?'Carregando…':'Prévia das folhas'}</Button><Button disabled={generating||preparing} onClick={()=>void downloadPdf()}>{generating?'Gerando PDF…':'Baixar PDF pronto'}</Button></div></div></Card>
-  {error&&<div className="mt-3 rounded-xl bg-red-950/40 p-3 text-sm text-red-300">{error}</div>}{notice&&<div className="mt-3 rounded-xl bg-emerald-950/40 p-3 text-sm text-emerald-200">{notice}</div>}</div>
-  {cards.length?<div className="print-area space-y-4">{sheets.map((sheet,index)=><section key={index} className="imposition-page" style={{width:`${spec.width}mm`,height:`${spec.height}mm`,gridTemplateColumns:`repeat(${grid.cols},minmax(0,${grid.cardWidth}mm))`,gridAutoRows:`${grid.cardHeight}mm`}}>{sheet.map(card=><PrintableCard key={card.id} card={card} event={event}/>)}</section>)}</div>:<Card className="no-print"><p className="text-sm text-slate-500">Clique em <b>Prévia das folhas</b> somente se quiser conferir a montagem na tela. Para gerar o arquivo final não é necessário abrir a prévia: use <b>Baixar PDF pronto</b>.</p></Card>}</div>}
+
+  const totalCards=batch?.generated_cards??0
+  const totalSheets=Math.ceil(totalCards/perSheet)
+  const totalParts=Math.max(1,Math.ceil(totalSheets/Math.max(1,sheetsPerPdf)))
+  const cardsPerPart=perSheet*Math.max(1,sheetsPerPdf)
+  const offset=(part-1)*cardsPerPart
+  const sheets=chunk(cards,perSheet)
+
+  async function loadCurrentPart(){
+    if(!currentWorkspace||!eventId||!batchId)return [] as PhysicalCardView[]
+    const loaded=await listBatchCardsForPrint(currentWorkspace.id,eventId,batchId,offset,Math.min(cardsPerPart,500))
+    setCards(loaded)
+    return loaded
+  }
+
+  async function prepare(){
+    setPreparing(true);setError(null);setNotice(null)
+    try{await loadCurrentPart()}catch{setError('Não foi possível carregar este bloco de cartelas.')}finally{setPreparing(false)}
+  }
+
+  async function downloadPdf(){
+    if(!batchId||!batch)return
+    setGenerating(true);setError(null);setNotice(null)
+    try{
+      const current=cards.length?cards:await loadCurrentPart()
+      if(!current.length)throw new Error('Nenhuma cartela encontrada neste arquivo.')
+      const name=`BINGOUP-${safeName(event?.name??'evento')}-${safeName(batch.series_code)}-PDF-${String(part).padStart(2,'0')}-de-${String(totalParts).padStart(2,'0')}.pdf`
+      const size=await downloadLightweightCardsPdf({
+        cards:current,
+        paper,
+        orientation,
+        perSheet,
+        marginMm:MARGIN_MM,
+        gapMm,
+        cropMarks,
+        fileName:name,
+      })
+      try{await registerPrint(batchId,current.map(c=>c.id))}catch{
+        setNotice(`PDF baixado (${formatBytes(size)}), mas o histórico de impressão não pôde ser atualizado.`)
+        return
+      }
+      setNotice(`PDF pronto: ${name} · ${formatBytes(size)}. Fundo, jogos e números foram montados na mesma cartela.`)
+    }catch(e){
+      setError(e instanceof Error?e.message:'Não foi possível gerar o PDF.')
+    }finally{
+      setGenerating(false)
+    }
+  }
+
+  if(loading)return <Card>Preparando impressão…</Card>
+  if(error&&!batch)return <Card>{error}</Card>
+  if(!event||!batch)return <Card>Lote indisponível.</Card>
+
+  const orientationLabel=orientation==='landscape'?'Paisagem':'Retrato'
+  const style=`@media print{@page{size:${spec.width}mm ${spec.height}mm;margin:0}html,body{background:#fff!important}.imposition-page{width:${spec.width}mm!important;height:${spec.height}mm!important;padding:${MARGIN_MM}mm!important;grid-template-columns:repeat(${grid.cols},${grid.cardWidth}mm)!important;grid-auto-rows:${grid.cardHeight}mm!important;gap:${gapMm}mm!important;align-content:center!important;justify-content:center!important}}`
+
+  return <div className="space-y-5">
+    <style>{style}</style>
+    <div className="no-print">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-red-400">PDF pronto para impressão</p>
+          <h1 className="text-3xl font-black">Gerar PDF das cartelas</h1>
+          <p className="mt-1 max-w-3xl text-sm text-slate-500">A montagem usa a mesma arte e os mesmos jogos da miniatura. No modo automático, o BINGOUP escolhe retrato ou paisagem para aproveitar melhor a folha.</p>
+        </div>
+        <Button variant="secondary" onClick={()=>nav(-1)}>Voltar</Button>
+      </div>
+
+      {previewCard&&<Card className="mt-5"><div className="grid gap-5 lg:grid-cols-[minmax(0,320px)_1fr] lg:items-center"><button type="button" onClick={()=>setExpanded(true)} className="group mx-auto block w-full max-w-[300px] cursor-zoom-in rounded-2xl border border-slate-700 bg-slate-900 p-2 transition hover:border-red-500/70" aria-label="Abrir cartela em tamanho maior"><div className="aspect-[210/297] overflow-hidden rounded-xl bg-white"><PrintableCard card={previewCard} event={event}/></div><p className="mt-2 text-center text-xs font-bold text-slate-300">Cartela {previewCard.code} · toque para ampliar</p></button><div><p className="text-xs font-black uppercase tracking-[.14em] text-red-400">Confira antes de gerar</p><h2 className="mt-1 text-2xl font-black">Miniatura real da cartela</h2><p className="mt-2 max-w-xl text-sm text-slate-400">Esta é uma cartela real do lote, usando a arte, o posicionamento dos jogos, os números e o coringa salvos.</p><div className="mt-4"><Button variant="secondary" onClick={()=>setExpanded(true)}>Expandir cartela</Button></div></div></div></Card>}
+
+      {expanded&&previewCard&&<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Cartela ampliada" onClick={()=>setExpanded(false)}><div className="flex h-full max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between gap-3 border-b border-slate-800 p-3 sm:p-4"><div><p className="font-black text-white">Cartela {previewCard.code}</p><p className="text-xs text-slate-400">Prévia ampliada antes do PDF</p></div><Button variant="secondary" onClick={()=>setExpanded(false)}>Fechar</Button></div><div className="min-h-0 flex-1 overflow-auto p-3 sm:p-6"><div className="mx-auto w-full max-w-[760px]"><div className="aspect-[210/297] overflow-hidden rounded-xl bg-white shadow-2xl"><PrintableCard card={previewCard} event={event}/></div></div></div></div></div>}
+
+      <Card className="mt-5">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <label className="text-sm font-semibold">Tamanho da folha<Select className="mt-1" value={paper} onChange={e=>setPaper(e.target.value as PrintPaper)}><option value="A5">A5</option><option value="A4">A4</option><option value="A3">A3</option><option value="letter">Carta</option><option value="legal">Ofício / Legal</option></Select></label>
+          <label className="text-sm font-semibold">Orientação<Select className="mt-1" value={orientationMode} onChange={e=>setOrientationMode(e.target.value as PrintOrientationMode)}><option value="auto">Automática</option><option value="portrait">Retrato</option><option value="landscape">Paisagem</option></Select></label>
+          <label className="text-sm font-semibold">Cartelas por folha<Select className="mt-1" value={perSheet} onChange={e=>setPerSheet(Number(e.target.value))}>{allowed.map(v=><option key={v} value={v}>{v} por folha</option>)}</Select></label>
+          <label className="text-sm font-semibold">Espaço para corte<Select className="mt-1" value={gapMm} onChange={e=>setGapMm(Number(e.target.value))}><option value={0}>Sem espaço</option><option value={2}>2 mm</option><option value={3}>3 mm</option><option value={5}>5 mm</option></Select></label>
+          <label className="text-sm font-semibold">Folhas por PDF<Input className="mt-1" type="number" min={1} max={50} value={sheetsPerPdf} onChange={e=>setSheetsPerPdf(Math.max(1,Math.min(50,Number(e.target.value))))}/></label>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-700 bg-slate-950/35 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="text-sm font-black text-white">Distribuição inteligente</p><p className="mt-1 text-xs text-slate-400">{orientationMode==='auto'?`O BINGOUP escolheu ${orientationLabel.toLowerCase()} com ${grid.cols} coluna(s) × ${grid.rows} linha(s).`:`Distribuição manual em ${orientationLabel.toLowerCase()}, ${grid.cols} coluna(s) × ${grid.rows} linha(s).`} A montagem é centralizada na folha.</p></div>
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-200"><input type="checkbox" checked={cropMarks} onChange={e=>setCropMarks(e.target.checked)}/> Guias de corte</label>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Cartelas" value={totalCards.toLocaleString('pt-BR')}/><Metric label="Folhas" value={totalSheets.toLocaleString('pt-BR')}/><Metric label="Orientação usada" value={orientationLabel}/><Metric label="Cartela aproximada" value={`${grid.cardWidth.toFixed(0)} × ${grid.cardHeight.toFixed(0)} mm`}/></div>
+        <div className="mt-4 rounded-xl border border-emerald-900/50 bg-emerald-950/20 p-3 text-xs text-emerald-200"><b>PDF leve e fiel:</b> a arte é embutida uma única vez e reutilizada, enquanto jogos, números, linhas e coringa são desenhados por cima. A correção mantém esses elementos juntos no arquivo final.</div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs text-slate-500">Cada arquivo terá no máximo {sheetsPerPdf} folha(s).</p><label className="mt-2 block max-w-xs text-sm font-semibold">Arquivo<Select className="mt-1" value={part} onChange={e=>setPart(Number(e.target.value))}>{Array.from({length:totalParts},(_,i)=><option key={i+1} value={i+1}>PDF {i+1} de {totalParts}</option>)}</Select></label></div><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={preparing||generating} onClick={()=>void prepare()}>{preparing?'Carregando…':'Prévia das folhas'}</Button><Button disabled={generating||preparing} onClick={()=>void downloadPdf()}>{generating?'Gerando PDF…':'Baixar PDF pronto'}</Button></div></div>
+      </Card>
+      {error&&<div className="mt-3 rounded-xl bg-red-950/40 p-3 text-sm text-red-300">{error}</div>}
+      {notice&&<div className="mt-3 rounded-xl bg-emerald-950/40 p-3 text-sm text-emerald-200">{notice}</div>}
+    </div>
+
+    {cards.length?<div className="print-area space-y-4">{sheets.map((sheet,index)=><section key={index} className="imposition-page" style={{width:`${spec.width}mm`,height:`${spec.height}mm`,aspectRatio:`${spec.width}/${spec.height}`,padding:`${MARGIN_MM}mm`,gap:`${gapMm}mm`,gridTemplateColumns:`repeat(${grid.cols},minmax(0,${grid.cardWidth}mm))`,gridAutoRows:`${grid.cardHeight}mm`,alignContent:'center',justifyContent:'center'}}>{sheet.map(card=><PrintableCard key={card.id} card={card} event={event}/>)}</section>)}</div>:<Card className="no-print"><p className="text-sm text-slate-500">Clique em <b>Prévia das folhas</b> para conferir a distribuição. Para gerar o arquivo final, use <b>Baixar PDF pronto</b>.</p></Card>}
+  </div>
+}
+
 function Metric({label,value}:{label:string;value:string}){return <div className="rounded-xl bg-slate-950/50 p-3"><p className="text-xs font-semibold text-slate-500">{label}</p><p className="mt-1 font-black text-slate-100">{value}</p></div>}
 function safeName(value:string){return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,48)||'arquivo'}
 function formatBytes(bytes:number){if(bytes<1024)return `${bytes} B`;if(bytes<1024*1024)return `${(bytes/1024).toFixed(1)} KB`;return `${(bytes/1024/1024).toFixed(2)} MB`}
