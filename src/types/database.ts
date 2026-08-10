@@ -279,6 +279,9 @@ export type DrawSession = {
   participant_games: number
   called_count: number
   last_called_number: number | null
+  draw_method?: 'automatic' | 'manual'
+  continues_previous?: boolean
+  continuation_source_session_id?: string | null
   public_token: string
   created_by: string | null
   started_at: string

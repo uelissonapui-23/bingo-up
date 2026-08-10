@@ -31,8 +31,8 @@ export async function listDrawNumbers(sessionId:string):Promise<DrawNumber[]>{
   return (data??[]) as DrawNumber[]
 }
 
-export async function createDrawSession(eventId:string,ruleSetId:string,winPatternCode:string,name?:string){
-  const {data,error}=await supabase.rpc('create_draw_session',{target_event_id:eventId,target_rule_set_id:ruleSetId,target_win_pattern_code:winPatternCode,target_name:name||null})
+export async function createDrawSession(eventId:string,ruleSetId:string,winPatternCode:string,name?:string,options?:{continueNumbers?:boolean;drawMethod?:'automatic'|'manual'}){
+  const {data,error}=await supabase.rpc('create_draw_session',{target_event_id:eventId,target_rule_set_id:ruleSetId,target_win_pattern_code:winPatternCode,target_name:name||null,target_continue_numbers:options?.continueNumbers??false,target_draw_method:options?.drawMethod??'automatic'})
   if(error) throw error
   return data as string
 }
@@ -40,6 +40,11 @@ export async function createDrawSession(eventId:string,ruleSetId:string,winPatte
 export async function drawNextNumber(sessionId:string){
   const {data,error}=await supabase.rpc('draw_next_number',{target_session_id:sessionId})
   if(error) throw error
+  return data as number
+}
+export async function callManualNumber(sessionId:string,number:number){
+  const {data,error}=await supabase.rpc('call_manual_draw_number',{target_session_id:sessionId,target_number:number})
+  if(error)throw error
   return data as number
 }
 export async function pauseDraw(sessionId:string){const {error}=await supabase.rpc('pause_draw_session',{target_session_id:sessionId});if(error)throw error}
