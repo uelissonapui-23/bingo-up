@@ -58,6 +58,15 @@ export function subscribeToDraw(sessionId:string,onChange:()=>void){
   return ()=>{void supabase.removeChannel(channel)}
 }
 
+
+export function subscribeToEventDraw(eventId:string,onChange:()=>void){
+  const channel=supabase.channel(`draw-event-${eventId}-${crypto.randomUUID()}`)
+    .on('postgres_changes',{event:'*',schema:'public',table:'draw_sessions',filter:`event_id=eq.${eventId}`},onChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'events',filter:`id=eq.${eventId}`},onChange)
+    .subscribe()
+  return ()=>{void supabase.removeChannel(channel)}
+}
+
 export type DrawProgressRow={session_id:string;physical_card_id:string;card_game_id:string;position:number;matched_count:number;missing_count:number;is_winner:boolean;completed_at:string|null;card_code:string|null}
 export type WinnerCandidateView={id:string;physical_card_id:string;card_game_id:string;status:string;detected_at:string;physical_cards:{code:string}|null;draw_session_games:{position:number}|null}
 

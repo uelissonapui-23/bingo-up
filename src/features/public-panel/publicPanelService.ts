@@ -2,6 +2,7 @@ import { supabase } from '@/services/supabase/client'
 
 export type PublicPanelState = {
   session_id: string
+  public_token: string
   event_name: string
   round_name: string
   status: 'active' | 'paused' | 'finished' | 'canceled'
