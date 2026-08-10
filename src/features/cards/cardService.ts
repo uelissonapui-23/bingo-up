@@ -8,8 +8,10 @@ export type PhysicalCardView=PhysicalCard&{games:CardGameView[];batch:CardBatch;
 function templateFromBatchSnapshot(batch:CardBatch,current:CardTemplate):CardTemplate{
   const raw=batch.generation_options?.template_snapshot
   const artworkRaw=batch.generation_options?.artwork_snapshot
+  const styleRaw=batch.generation_options?.game_style_snapshot
   const artwork=artworkRaw&&typeof artworkRaw==='object'&&!Array.isArray(artworkRaw)?parseCardTemplateOptions({artwork:artworkRaw}).artwork:undefined
-  if(!raw||typeof raw!=='object'||Array.isArray(raw))return artwork?{...current,options:{...current.options,artwork}}:current
+  const gameStyle=styleRaw&&typeof styleRaw==='object'&&!Array.isArray(styleRaw)?parseCardTemplateOptions({gameStyle:styleRaw}).gameStyle:undefined
+  if(!raw||typeof raw!=='object'||Array.isArray(raw)){const options={...current.options,...(artwork?{artwork}:{}),...(gameStyle?{gameStyle}:{})};return {...current,options}}
   const snapshot=raw as Record<string,unknown>
   if(snapshot.id!==current.id)return artwork?{...current,options:{...current.options,artwork}}:current
   const snapshotOptions=snapshot.options&&typeof snapshot.options==='object'&&!Array.isArray(snapshot.options)?snapshot.options as Record<string,unknown>:current.options
@@ -20,7 +22,7 @@ function templateFromBatchSnapshot(batch:CardBatch,current:CardTemplate):CardTem
     layout_key:typeof snapshot.layout_key==='string'?snapshot.layout_key:current.layout_key,
     orientation:snapshot.orientation==="portrait"||snapshot.orientation==="landscape"?snapshot.orientation:current.orientation,
     page_size:snapshot.page_size==="A4"||snapshot.page_size==="letter"?snapshot.page_size:current.page_size,
-    options:artwork?{...snapshotOptions,artwork}:snapshotOptions,
+    options:{...snapshotOptions,...(artwork?{artwork}:{}),...(gameStyle?{gameStyle}:{})},
   }
 }
 

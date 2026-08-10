@@ -1,7 +1,7 @@
 import { supabase } from '@/services/supabase/client'
 import type { BingoRuleSet, CardTemplate, BingoDistributionMode, CardBannerPosition, CardOrientation, CardPageSize } from '@/types/database'
 import type { ColumnDefinition } from '@/domain/cards/capacity'
-import { parseCardTemplateOptions, type CardArtworkOptions, type CardTemplateOptions } from '@/domain/cards/templateOptions'
+import { DEFAULT_GAME_STYLE, parseCardTemplateOptions, type CardArtworkOptions, type CardGameStyleOptions, type CardTemplateOptions } from '@/domain/cards/templateOptions'
 
 export type CreateRuleInput = {
   name: string; code: string; totalBalls: number; gridRows: number; gridColumns: number; numbersPerGame: number
@@ -49,6 +49,29 @@ function readEventArtwork(settings:Record<string,unknown>|null|undefined):CardAr
   const raw=settings?.card_artwork
   if(!raw||typeof raw!=='object'||Array.isArray(raw))return undefined
   return parseCardTemplateOptions({artwork:raw}).artwork
+}
+
+
+function readEventGameStyle(settings:Record<string,unknown>|null|undefined):CardGameStyleOptions{
+  const raw=settings?.card_game_style
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return DEFAULT_GAME_STYLE
+  return parseCardTemplateOptions({gameStyle:raw}).gameStyle??DEFAULT_GAME_STYLE
+}
+
+export async function getEventCardGameStyle(workspaceId:string,eventId:string):Promise<CardGameStyleOptions>{
+  const {data,error}=await supabase.from('event_settings').select('settings').eq('workspace_id',workspaceId).eq('event_id',eventId).single()
+  if(error)throw error
+  return readEventGameStyle((data?.settings??{}) as Record<string,unknown>)
+}
+
+export async function saveEventCardGameStyle(workspaceId:string,eventId:string,style:CardGameStyleOptions):Promise<CardGameStyleOptions>{
+  const {data,error}=await supabase.from('event_settings').select('settings').eq('workspace_id',workspaceId).eq('event_id',eventId).single()
+  if(error)throw error
+  const current=(data?.settings??{}) as Record<string,unknown>
+  const normalized=parseCardTemplateOptions({gameStyle:style}).gameStyle??DEFAULT_GAME_STYLE
+  const {data:updated,error:updateError}=await supabase.from('event_settings').update({settings:{...current,card_game_style:normalized}}).eq('workspace_id',workspaceId).eq('event_id',eventId).select('settings').single()
+  if(updateError)throw updateError
+  return readEventGameStyle((updated?.settings??{}) as Record<string,unknown>)
 }
 
 export async function getEventCardArtwork(workspaceId:string,eventId:string):Promise<CardArtworkOptions|undefined>{
