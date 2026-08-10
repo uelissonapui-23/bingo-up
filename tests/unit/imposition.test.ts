@@ -10,11 +10,12 @@ describe('imposição de impressão',()=>{
     expect(plan.cardWidth).toBeGreaterThan(130)
   })
 
-  it('respeita orientação manual',()=>{
+  it('respeita orientação manual e escolhe a melhor grade dentro do retrato',()=>{
     const plan=smartGrid(2,'A4','portrait',6,3)
     expect(plan.orientation).toBe('portrait')
-    expect(plan.cols).toBe(2)
-    expect(plan.rows).toBe(1)
+    expect(plan.cols).toBe(1)
+    expect(plan.rows).toBe(2)
+    expect(plan.cols*plan.rows).toBeGreaterThanOrEqual(2)
   })
 
   it('reduz o tamanho da cartela quando o espaço de corte aumenta',()=>{
