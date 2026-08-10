@@ -282,6 +282,7 @@ export type DrawSession = {
   draw_method?: 'automatic' | 'manual'
   continues_previous?: boolean
   continuation_source_session_id?: string | null
+  exclude_previously_awarded_games?: boolean
   public_token: string
   created_by: string | null
   started_at: string

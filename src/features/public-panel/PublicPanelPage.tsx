@@ -17,12 +17,12 @@ export function PublicPanelPage(){
   const [error,setError]=useState<string|null>(null)
   const [connected,setConnected]=useState(true)
   const [screenMode,setScreenMode]=useState<ScreenMode>(()=>getScreenMode())
-  const [fullscreen,setFullscreen]=useState(()=>Boolean(document.fullscreenElement));const explicitFullscreenExit=useRef(false);const [fullscreenWanted,setFullscreenWanted]=useState(()=>sessionStorage.getItem('bingoup:tv-fullscreen-wanted')==='1')
-  const load=useCallback(async()=>{if(!publicSessionId)return;try{setState(await getPublicPanelState(publicSessionId));setError(null);setConnected(true)}catch{setConnected(false);setError('Este painel não está disponível ou o link é inválido.')}},[publicSessionId])
+  const [fullscreen,setFullscreen]=useState(()=>Boolean(document.fullscreenElement));const explicitFullscreenExit=useRef(false);const [fullscreenWanted,setFullscreenWanted]=useState(()=>sessionStorage.getItem('bingoup:tv-fullscreen-wanted')==='1');const loadingRef=useRef(false);const hasStateRef=useRef(false)
+  const load=useCallback(async()=>{if(!publicSessionId||loadingRef.current)return;loadingRef.current=true;try{const next=await getPublicPanelState(publicSessionId);setState(current=>{hasStateRef.current=true;if(!current)return next;if(next.session_number<current.session_number)return current;return next});setError(null);setConnected(true)}catch{setConnected(false);if(!hasStateRef.current)setError('Este painel não está disponível ou o link é inválido.')}finally{loadingRef.current=false}},[publicSessionId])
   useEffect(()=>{void load()},[load])
   useEffect(()=>{
     const refresh=()=>void load()
-    const id=window.setInterval(refresh,1500)
+    const id=window.setInterval(refresh,800)
     window.addEventListener('online',refresh)
     window.addEventListener('focus',refresh)
     return()=>{window.clearInterval(id);window.removeEventListener('online',refresh);window.removeEventListener('focus',refresh)}

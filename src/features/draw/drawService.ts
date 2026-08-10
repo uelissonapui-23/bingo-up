@@ -31,8 +31,8 @@ export async function listDrawNumbers(sessionId:string):Promise<DrawNumber[]>{
   return (data??[]) as DrawNumber[]
 }
 
-export async function createDrawSession(eventId:string,ruleSetId:string,winPatternCode:string,name?:string,options?:{continueNumbers?:boolean;drawMethod?:'automatic'|'manual'}){
-  const {data,error}=await supabase.rpc('create_draw_session',{target_event_id:eventId,target_rule_set_id:ruleSetId,target_win_pattern_code:winPatternCode,target_name:name||null,target_continue_numbers:options?.continueNumbers??false,target_draw_method:options?.drawMethod??'automatic'})
+export async function createDrawSession(eventId:string,ruleSetId:string,winPatternCode:string,name?:string,options?:{continueNumbers?:boolean;drawMethod?:'automatic'|'manual';excludePreviouslyAwardedGames?:boolean}){
+  const {data,error}=await supabase.rpc('create_draw_session',{target_event_id:eventId,target_rule_set_id:ruleSetId,target_win_pattern_code:winPatternCode,target_name:name||null,target_continue_numbers:options?.continueNumbers??false,target_draw_method:options?.drawMethod??'automatic',target_exclude_previously_awarded_games:options?.excludePreviouslyAwardedGames??false})
   if(error) throw error
   return data as string
 }
