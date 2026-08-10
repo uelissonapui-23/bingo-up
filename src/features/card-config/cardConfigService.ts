@@ -55,7 +55,7 @@ export async function createCardTemplate(workspaceId:string,eventId:string,input
     return data as string
   }catch(error){if(uploaded.length)await supabase.storage.from('card-artworks').remove(uploaded).catch(()=>{});throw error}
 }
-export async function updateCardTemplate(workspaceId:string,eventId:string,templateId:string,input:UpdateTemplateInput){
+export async function updateCardTemplate(workspaceId:string,eventId:string,templateId:string,input:UpdateTemplateInput):Promise<CardTemplate>{
   const {data:row,error:readError}=await supabase.from('card_templates').select('options').eq('workspace_id',workspaceId).eq('event_id',eventId).eq('id',templateId).single()
   if(readError)throw readError
   const previous=(row?.options??{}) as Record<string,unknown>
@@ -71,10 +71,12 @@ export async function updateCardTemplate(workspaceId:string,eventId:string,templ
     else if(input.removeArtwork)delete options.artwork
     if(input.wildcardFile){const path=`${workspaceId}/${eventId}/wildcards/${crypto.randomUUID()}.webp`;await uploadAsset(path,input.wildcardFile);uploaded.push(path);options.wildcard={...(options.wildcard??{kind:'custom',scale:1}),kind:'custom',path}}
     else if(options.wildcard?.kind==='custom'&&oldWildcardPath)options.wildcard={...options.wildcard,path:oldWildcardPath}
-    const {error}=await supabase.from('card_templates').update({name:input.name,physical_format:input.format,layout_key:input.layoutKey,orientation:input.orientation,page_size:input.pageSize,banner_position:'none',banner_height_mm:0,show_event_name:false,show_event_date:false,show_qr_code:false,show_series:false,show_card_code:false,options}).eq('workspace_id',workspaceId).eq('event_id',eventId).eq('id',templateId)
+    const {data:updated,error}=await supabase.from('card_templates').update({name:input.name,physical_format:input.format,layout_key:input.layoutKey,orientation:input.orientation,page_size:input.pageSize,banner_position:'none',banner_height_mm:0,show_event_name:false,show_event_date:false,show_qr_code:false,show_series:false,show_card_code:false,options}).eq('workspace_id',workspaceId).eq('event_id',eventId).eq('id',templateId).select('*').single()
     if(error)throw error
+    if(!updated)throw new Error('A configuração da cartela não foi persistida.')
     const obsolete=[input.artworkFile?oldArtworkPath:null,input.removeArtwork?oldArtworkPath:null,input.wildcardFile?oldWildcardPath:null,options.wildcard?.kind!=='custom'?oldWildcardPath:null].filter((x):x is string=>Boolean(x)&&!uploaded.includes(x as string))
     if(obsolete.length)await supabase.storage.from('card-artworks').remove([...new Set(obsolete)]).catch(()=>{})
+    return updated as CardTemplate
   }catch(error){if(uploaded.length)await supabase.storage.from('card-artworks').remove(uploaded).catch(()=>{});throw error}
 }
 

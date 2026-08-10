@@ -63,7 +63,18 @@ export async function createCardBatch(input: {
     batch_code_padding: input.codePadding,
     batch_uniqueness_mode: input.uniquenessMode,
     batch_capacity_snapshot: input.capacitySnapshot,
-    batch_generation_options: { generator_version: 1 },
+    batch_generation_options: {
+      generator_version: 1,
+      template_snapshot: {
+        id: input.template.id,
+        name: input.template.name,
+        physical_format: input.template.physical_format,
+        layout_key: input.template.layout_key,
+        orientation: input.template.orientation,
+        page_size: input.template.page_size,
+        options: input.template.options,
+      },
+    },
   })
   if (error) throw error
   return data as string

@@ -4,6 +4,22 @@ import type { CardBatch, CardTemplate, GameDefinition, PhysicalCard, PhysicalCar
 export type CardGameView={position:number;definition:GameDefinition}
 export type PhysicalCardView=PhysicalCard&{games:CardGameView[];batch:CardBatch;template:CardTemplate;rule:BingoRuleSet}
 
+function templateFromBatchSnapshot(batch:CardBatch,current:CardTemplate):CardTemplate{
+  const raw=batch.generation_options?.template_snapshot
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return current
+  const snapshot=raw as Record<string,unknown>
+  if(snapshot.id!==current.id)return current
+  return {
+    ...current,
+    name:typeof snapshot.name==='string'?snapshot.name:current.name,
+    physical_format:typeof snapshot.physical_format==='number'?snapshot.physical_format:current.physical_format,
+    layout_key:typeof snapshot.layout_key==='string'?snapshot.layout_key:current.layout_key,
+    orientation:snapshot.orientation==="portrait"||snapshot.orientation==="landscape"?snapshot.orientation:current.orientation,
+    page_size:snapshot.page_size==="A4"||snapshot.page_size==="letter"?snapshot.page_size:current.page_size,
+    options:snapshot.options&&typeof snapshot.options==='object'&&!Array.isArray(snapshot.options)?snapshot.options as Record<string,unknown>:current.options,
+  }
+}
+
 export async function listEventCards(workspaceId:string,eventId:string,filters?:{batchId?:string;status?:PhysicalCardStatus;search?:string;limit?:number;offset?:number}){
   let q=supabase.from('physical_cards').select('*, card_batches!inner(*), card_templates!inner(*), bingo_rule_sets!inner(*)')
     .eq('workspace_id',workspaceId).eq('event_id',eventId).order('sequence_number')
@@ -12,14 +28,15 @@ export async function listEventCards(workspaceId:string,eventId:string,filters?:
   if(filters?.search)q=q.ilike('code',`%${filters.search.replace(/[%_]/g,'')}%`)
   const limit=Math.max(1,Math.min(filters?.limit??500,1000));const offset=Math.max(0,filters?.offset??0);q=q.range(offset,offset+limit-1)
   const {data,error}=await q;if(error)throw error
-  return (data??[]).map((r:any)=>({...r,batch:r.card_batches,template:r.card_templates,rule:r.bingo_rule_sets})) as Array<PhysicalCard&{batch:CardBatch;template:CardTemplate;rule:BingoRuleSet}>
+  return (data??[]).map((r:any)=>{const batch=r.card_batches as CardBatch;const currentTemplate=r.card_templates as CardTemplate;return {...r,batch,template:templateFromBatchSnapshot(batch,currentTemplate),rule:r.bingo_rule_sets}}) as Array<PhysicalCard&{batch:CardBatch;template:CardTemplate;rule:BingoRuleSet}>
 }
 
 export async function getPhysicalCard(workspaceId:string,eventId:string,cardId:string):Promise<PhysicalCardView>{
   const {data,error}=await supabase.from('physical_cards').select('*, card_batches!inner(*), card_templates!inner(*), bingo_rule_sets!inner(*)').eq('workspace_id',workspaceId).eq('event_id',eventId).eq('id',cardId).single();if(error)throw error
   const {data:games,error:ge}=await supabase.from('card_games').select('position, game_definitions!inner(*)').eq('physical_card_id',cardId).order('position');if(ge)throw ge
   const r:any=data
-  return {...r,batch:r.card_batches,template:r.card_templates,rule:r.bingo_rule_sets,games:(games??[]).map((g:any)=>({position:g.position,definition:g.game_definitions}))} as PhysicalCardView
+  const batch=r.card_batches as CardBatch;const currentTemplate=r.card_templates as CardTemplate
+  return {...r,batch,template:templateFromBatchSnapshot(batch,currentTemplate),rule:r.bingo_rule_sets,games:(games??[]).map((g:any)=>({position:g.position,definition:g.game_definitions}))} as PhysicalCardView
 }
 
 export async function getCardBatch(workspaceId:string,eventId:string,batchId:string):Promise<CardBatch>{const {data,error}=await supabase.from('card_batches').select('*').eq('workspace_id',workspaceId).eq('event_id',eventId).eq('id',batchId).single();if(error)throw error;return data as CardBatch}
