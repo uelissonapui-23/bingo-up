@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useMemo,useState} from 'react'
 import {useParams} from 'react-router-dom'
 import {buildPublicBoardColumns,recentCalledNumbers} from '@/domain/draw/publicBoard'
-import {getPublicPanelState,subscribeToPublicPanel,type PublicPanelState} from './publicPanelService'
+import {getPublicPanelState,type PublicPanelState} from './publicPanelService'
 
 type ScreenMode='portrait'|'landscape'|'wide'
 function getScreenMode():ScreenMode{
@@ -20,9 +20,13 @@ export function PublicPanelPage(){
   const [fullscreen,setFullscreen]=useState(()=>Boolean(document.fullscreenElement))
   const load=useCallback(async()=>{if(!publicSessionId)return;try{setState(await getPublicPanelState(publicSessionId));setError(null);setConnected(true)}catch{setConnected(false);setError('Este painel não está disponível ou o link é inválido.')}},[publicSessionId])
   useEffect(()=>{void load()},[load])
-  const signalToken=state?.public_token??publicSessionId
-  useEffect(()=>{if(!signalToken)return;return subscribeToPublicPanel(signalToken,()=>void load())},[signalToken,load])
-  useEffect(()=>{const id=window.setInterval(()=>void load(),3500);return()=>window.clearInterval(id)},[load])
+  useEffect(()=>{
+    const refresh=()=>void load()
+    const id=window.setInterval(refresh,1500)
+    window.addEventListener('online',refresh)
+    window.addEventListener('focus',refresh)
+    return()=>{window.clearInterval(id);window.removeEventListener('online',refresh);window.removeEventListener('focus',refresh)}
+  },[load])
   useEffect(()=>{const resize=()=>setScreenMode(getScreenMode());window.addEventListener('resize',resize);window.addEventListener('orientationchange',resize);return()=>{window.removeEventListener('resize',resize);window.removeEventListener('orientationchange',resize)}},[])
   useEffect(()=>{const changed=()=>setFullscreen(Boolean(document.fullscreenElement));document.addEventListener('fullscreenchange',changed);return()=>document.removeEventListener('fullscreenchange',changed)},[])
   const called=useMemo(()=>new Set(state?.called_numbers??[]),[state?.called_numbers])

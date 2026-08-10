@@ -1,36 +1,40 @@
-import { Route, Routes } from 'react-router-dom'
-import { RequireAuth } from '@/app/guards/RequireAuth'
-import { RequireWorkspace } from '@/app/guards/RequireWorkspace'
-import { AppShell } from '@/components/layout/AppShell'
-import { LoginPage } from '@/features/auth/LoginPage'
-import { RegisterPage } from '@/features/auth/RegisterPage'
-import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage'
-import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
-import { WorkspaceOnboardingPage } from '@/features/workspace/WorkspaceOnboardingPage'
-import { DashboardPage } from '@/features/dashboard/DashboardPage'
-import { AccountPage } from '@/features/account/AccountPage'
-import { PublicPanelPage } from '@/features/public-panel/PublicPanelPage'
-import { EventsPage } from '@/features/events/EventsPage'
-import { NewEventPage } from '@/features/events/NewEventPage'
-import { EventDetailPage } from '@/features/events/EventDetailPage'
-import { EditEventPage } from '@/features/events/EditEventPage'
-import { CardConfigurationPage } from '@/features/card-config/CardConfigurationPage'
-import { CardGeneratorPage } from '@/features/card-generator/CardGeneratorPage'
-import { CardsPage } from '@/features/cards/CardsPage'
-import { CardsHubPage } from '@/features/cards/CardsHubPage'
-import { CardDetailPage } from '@/features/cards/CardDetailPage'
-import { BatchPrintPage } from '@/features/cards/BatchPrintPage'
-import { PublicCardPlaceholderPage } from '@/features/cards/PublicCardPlaceholderPage'
-import { SalesPage } from '@/features/sales/SalesPage'
-import { DrawHomePage } from '@/features/draw/DrawHomePage'
-import { DrawPage } from '@/features/draw/DrawPage'
-import { HistoryPage } from '@/features/history/HistoryPage'
-import { EventHistoryPage } from '@/features/history/EventHistoryPage'
-import { SystemSettingsPage } from '@/features/settings/SystemSettingsPage'
-import { NotFoundPage } from '@/features/platform/NotFoundPage'
+import {lazy,Suspense} from 'react'
+import {Route,Routes} from 'react-router-dom'
+import {RequireAuth} from '@/app/guards/RequireAuth'
+import {RequireWorkspace} from '@/app/guards/RequireWorkspace'
+import {AppShell} from '@/components/layout/AppShell'
+import {LoginPage} from '@/features/auth/LoginPage'
+import {RegisterPage} from '@/features/auth/RegisterPage'
+import {ForgotPasswordPage} from '@/features/auth/ForgotPasswordPage'
+import {ResetPasswordPage} from '@/features/auth/ResetPasswordPage'
+import {WorkspaceOnboardingPage} from '@/features/workspace/WorkspaceOnboardingPage'
 
-export function AppRouter() {
-  return <Routes>
+const DashboardPage=lazy(()=>import('@/features/dashboard/DashboardPage').then(m=>({default:m.DashboardPage})))
+const AccountPage=lazy(()=>import('@/features/account/AccountPage').then(m=>({default:m.AccountPage})))
+const PublicPanelPage=lazy(()=>import('@/features/public-panel/PublicPanelPage').then(m=>({default:m.PublicPanelPage})))
+const EventsPage=lazy(()=>import('@/features/events/EventsPage').then(m=>({default:m.EventsPage})))
+const NewEventPage=lazy(()=>import('@/features/events/NewEventPage').then(m=>({default:m.NewEventPage})))
+const EventDetailPage=lazy(()=>import('@/features/events/EventDetailPage').then(m=>({default:m.EventDetailPage})))
+const EditEventPage=lazy(()=>import('@/features/events/EditEventPage').then(m=>({default:m.EditEventPage})))
+const CardConfigurationPage=lazy(()=>import('@/features/card-config/CardConfigurationPage').then(m=>({default:m.CardConfigurationPage})))
+const CardGeneratorPage=lazy(()=>import('@/features/card-generator/CardGeneratorPage').then(m=>({default:m.CardGeneratorPage})))
+const CardsPage=lazy(()=>import('@/features/cards/CardsPage').then(m=>({default:m.CardsPage})))
+const CardsHubPage=lazy(()=>import('@/features/cards/CardsHubPage').then(m=>({default:m.CardsHubPage})))
+const CardDetailPage=lazy(()=>import('@/features/cards/CardDetailPage').then(m=>({default:m.CardDetailPage})))
+const BatchPrintPage=lazy(()=>import('@/features/cards/BatchPrintPage').then(m=>({default:m.BatchPrintPage})))
+const PublicCardPlaceholderPage=lazy(()=>import('@/features/cards/PublicCardPlaceholderPage').then(m=>({default:m.PublicCardPlaceholderPage})))
+const SalesPage=lazy(()=>import('@/features/sales/SalesPage').then(m=>({default:m.SalesPage})))
+const DrawHomePage=lazy(()=>import('@/features/draw/DrawHomePage').then(m=>({default:m.DrawHomePage})))
+const DrawPage=lazy(()=>import('@/features/draw/DrawPage').then(m=>({default:m.DrawPage})))
+const HistoryPage=lazy(()=>import('@/features/history/HistoryPage').then(m=>({default:m.HistoryPage})))
+const EventHistoryPage=lazy(()=>import('@/features/history/EventHistoryPage').then(m=>({default:m.EventHistoryPage})))
+const SystemSettingsPage=lazy(()=>import('@/features/settings/SystemSettingsPage').then(m=>({default:m.SystemSettingsPage})))
+const NotFoundPage=lazy(()=>import('@/features/platform/NotFoundPage').then(m=>({default:m.NotFoundPage})))
+
+function RouteLoading(){return <div className="p-6 text-sm font-semibold text-slate-500" role="status">Carregando…</div>}
+
+export function AppRouter(){
+  return <Suspense fallback={<RouteLoading/>}><Routes>
     <Route path="/entrar" element={<LoginPage/>}/><Route path="/criar-conta" element={<RegisterPage/>}/><Route path="/esqueci-senha" element={<ForgotPasswordPage/>}/><Route path="/redefinir-senha" element={<ResetPasswordPage/>}/>
     <Route path="/painel-publico/:publicSessionId" element={<PublicPanelPage/>}/><Route path="/c/:token" element={<PublicCardPlaceholderPage/>}/>
     <Route element={<RequireAuth/>}><Route path="/configurar-organizador" element={<div className="bingoup-app min-h-dvh p-4"><WorkspaceOnboardingPage/></div>}/><Route element={<RequireWorkspace/>}><Route element={<AppShell/>}>
@@ -39,5 +43,5 @@ export function AppRouter() {
       <Route path="cartelas" element={<CardsHubPage/>}/><Route path="vendas" element={<SalesPage/>}/><Route path="sorteio" element={<DrawHomePage/>}/><Route path="historico" element={<HistoryPage/>}/><Route path="eventos/:eventId/historico" element={<EventHistoryPage/>}/><Route path="configuracoes" element={<AccountPage/>}/><Route path="configuracoes/sistema" element={<SystemSettingsPage/>}/>
     </Route></Route></Route>
     <Route path="*" element={<NotFoundPage/>}/>
-  </Routes>
+  </Routes></Suspense>
 }

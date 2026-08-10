@@ -26,10 +26,3 @@ export async function getPublicPanelState(publicToken:string):Promise<PublicPane
   if(error) throw error
   return data as PublicPanelState
 }
-
-export function subscribeToPublicPanel(publicToken:string,onChange:()=>void){
-  const channel=supabase.channel(`public-panel-${publicToken}`)
-    .on('postgres_changes',{event:'*',schema:'public',table:'public_panel_signals',filter:`public_token=eq.${publicToken}`},onChange)
-    .subscribe()
-  return ()=>{void supabase.removeChannel(channel)}
-}

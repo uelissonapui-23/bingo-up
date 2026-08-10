@@ -4,6 +4,8 @@ let updateAvailable = false
 let updateServiceWorker: ((reloadPage?: boolean) => Promise<void>) | null = null
 
 export function registerPwa() {
+  // Remove o cache legado que chegou a armazenar respostas autenticadas do Supabase.
+  if ('caches' in window) void window.caches.delete('supabase-runtime')
   updateServiceWorker = registerSW({
     immediate: true,
     onNeedRefresh() {

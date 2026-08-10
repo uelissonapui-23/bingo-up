@@ -35,17 +35,10 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-runtime',
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 }
-            }
-          }
-        ]
+        cleanupOutdatedCaches: true,
+        // Dados autenticados do Supabase nunca entram no cache do Service Worker.
+        // O app shell continua disponível offline, mas dados de workspace/evento sempre vêm da sessão atual.
+        runtimeCaching: []
       }
     })
   ],

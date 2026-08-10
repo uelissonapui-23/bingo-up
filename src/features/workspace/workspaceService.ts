@@ -1,10 +1,11 @@
 import { supabase } from '@/services/supabase/client'
 import type { WorkspaceWithMembership } from '@/types/database'
 
-export async function listMyWorkspaces(): Promise<WorkspaceWithMembership[]> {
+export async function listMyWorkspaces(userId: string): Promise<WorkspaceWithMembership[]> {
   const { data: memberships, error } = await supabase
     .from('workspace_members')
     .select('id, role, status, workspace_id, workspaces(id,name,slug,owner_user_id,is_active,created_at,updated_at)')
+    .eq('user_id', userId)
     .eq('status', 'active')
   if (error) throw error
   return (memberships ?? []).flatMap((row: any) => {

@@ -16,10 +16,10 @@ const WorkspaceContext = createContext<WorkspaceState | null>(null)
 
 const wait = (ms:number) => new Promise(resolve => window.setTimeout(resolve, ms))
 
-async function loadWorkspacesWithRetry(attempts=3){
+async function loadWorkspacesWithRetry(userId:string,attempts=3){
   let lastError:unknown
   for(let attempt=0;attempt<attempts;attempt++){
-    try{return await listMyWorkspaces()}catch(error){
+    try{return await listMyWorkspaces(userId)}catch(error){
       lastError=error
       if(attempt<attempts-1)await wait(350*(attempt+1))
     }
@@ -45,7 +45,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     // Em atualizações silenciosas, preserve a tela atual. Uma oscilação de rede não deve desmontar o app.
     if(!loadedOnceRef.current)setLoading(true)
     try {
-      const items=await loadWorkspacesWithRetry(3)
+      const items=await loadWorkspacesWithRetry(user.id,3)
       let lastId:string|null|undefined
       try{lastId=await getLastWorkspaceId()}catch{lastId=currentRef.current?.id}
       setWorkspaces(items)
@@ -65,10 +65,13 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   useEffect(()=>{
     if(authLoading||!user)return
     const retry=()=>void refresh()
-    const id=window.setInterval(retry,15000)
+    const onVisibility=()=>{if(document.visibilityState==='visible')retry()}
+    // Verificação de segurança espaçada. Evita chamadas contínuas que podem derrubar a UX em rede instável.
+    const id=window.setInterval(retry,60000)
     window.addEventListener('online',retry)
     window.addEventListener('focus',retry)
-    return()=>{window.clearInterval(id);window.removeEventListener('online',retry);window.removeEventListener('focus',retry)}
+    document.addEventListener('visibilitychange',onVisibility)
+    return()=>{window.clearInterval(id);window.removeEventListener('online',retry);window.removeEventListener('focus',retry);document.removeEventListener('visibilitychange',onVisibility)}
   },[authLoading,user,refresh])
 
   const selectWorkspace = useCallback(async (workspaceId: string) => {
