@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useWorkspace } from '@/app/providers/WorkspaceProvider'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -10,11 +10,13 @@ import { eventStatusLabel, eventStatusTone, formatEventDate } from './eventUtils
 import type { EventWithSettings } from '@/types/database'
 
 export function EventsPage() {
+  const location = useLocation()
   const { currentWorkspace } = useWorkspace()
   const [events, setEvents] = useState<EventWithSettings[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [includeArchived, setIncludeArchived] = useState(false)
+  const navigationNotice = (location.state as { notice?: string } | null)?.notice
 
   const load = useCallback(async () => {
     if (!currentWorkspace) return
@@ -40,6 +42,7 @@ export function EventsPage() {
     </div>
     <div className="grid gap-4 sm:grid-cols-3"><Stat label="Total carregado" value={events.length}/><Stat label="Em operação" value={activeCount}/><Stat label="Organizador" value={currentWorkspace?.name ?? '—'}/></div>
     <label className="flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={includeArchived} onChange={e=>setIncludeArchived(e.target.checked)} /> Mostrar arquivados</label>
+    {navigationNotice && <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{navigationNotice}</div>}
     {error && <div className="rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-700">{error}</div>}
     {loading ? <Card>Carregando eventos…</Card> : events.length === 0 ? <EmptyState title="Nenhum evento criado" description="Crie o primeiro evento para começar a preparar cartelas e vendas."/> : <div className="grid gap-4 xl:grid-cols-2">{events.map(event => <Card key={event.id} className="p-0 overflow-hidden"><div className="p-5"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate text-xl font-black">{event.name}</h2><p className="mt-1 text-sm text-slate-500">{formatEventDate(event.starts_at)}</p></div><StatusBadge tone={eventStatusTone(event.status)}>{eventStatusLabel[event.status]}</StatusBadge></div><div className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2"><p><b>Local:</b> {event.location_name || 'Não definido'}</p><p><b>Valor padrão:</b> {new Intl.NumberFormat('pt-BR',{style:'currency',currency:event.settings?.currency ?? 'BRL'}).format(Number(event.settings?.default_card_price ?? 0))}</p><p className="break-words"><b>Código público:</b> {event.public_code}</p><p className="break-words"><b>Identificador:</b> {event.slug}</p></div><div className="mt-5 flex flex-wrap gap-2"><Link to={`/eventos/${event.id}`}><Button>Gerenciar</Button></Link><Link to={`/eventos/${event.id}/editar`}><Button variant="secondary">Editar</Button></Link><Button variant="secondary" onClick={()=>void toggleArchive(event)}>{event.status === 'archived' ? 'Restaurar' : 'Arquivar'}</Button></div></div></Card>)}</div>}
   </div>

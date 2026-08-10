@@ -74,6 +74,56 @@ export async function updateEventStatus(workspaceId: string, eventId: string, st
   await supabase.rpc('log_audit', { target_workspace_id: workspaceId, target_action: 'event.status_changed', target_entity_type: 'event', target_entity_id: eventId, target_metadata: { status } })
 }
 
+
+export async function finalizeEvent(eventId: string) {
+  const { error } = await supabase.rpc('finalize_event', { target_event_id: eventId })
+  if (error) throw error
+}
+
+async function listStorageFiles(bucket: string, prefix: string): Promise<string[]> {
+  const result: string[] = []
+  const visit = async (path: string) => {
+    let offset = 0
+    while (true) {
+      const { data, error } = await supabase.storage.from(bucket).list(path, { limit: 100, offset, sortBy: { column: 'name', order: 'asc' } })
+      if (error) throw error
+      const entries = data ?? []
+      for (const entry of entries) {
+        const child = path ? `${path}/${entry.name}` : entry.name
+        if (entry.id) result.push(child)
+        else await visit(child)
+      }
+      if (entries.length < 100) break
+      offset += entries.length
+    }
+  }
+  await visit(prefix)
+  return result
+}
+
+async function removeEventStorage(workspaceId: string, eventId: string) {
+  const prefix = `${workspaceId}/${eventId}`
+  for (const bucket of ['event-assets', 'card-artworks']) {
+    const paths = await listStorageFiles(bucket, prefix)
+    if (paths.length) {
+      const { error } = await supabase.storage.from(bucket).remove(paths)
+      if (error) throw error
+    }
+  }
+}
+
+export async function deleteFinishedEvent(workspaceId: string, eventId: string) {
+  const { error } = await supabase.rpc('delete_finished_event', { target_event_id: eventId })
+  if (error) throw error
+  try {
+    await removeEventStorage(workspaceId, eventId)
+    return { storageCleaned: true }
+  } catch (cleanupError) {
+    console.warn('Evento excluído, mas alguns arquivos do Storage não puderam ser removidos.', cleanupError)
+    return { storageCleaned: false }
+  }
+}
+
 export async function archiveEvent(eventId: string) {
   const { error } = await supabase.rpc('archive_event', { target_event_id: eventId })
   if (error) throw error
