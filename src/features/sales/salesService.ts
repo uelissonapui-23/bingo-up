@@ -1,8 +1,10 @@
 import { supabase } from '@/services/supabase/client'
-import type { BingoEvent, EventSettings, PhysicalCard, Sale, SaleItem, SaleStatus } from '@/types/database'
+import type { BingoEvent, CardBatch, EventSettings, PhysicalCard, Sale, SaleItem, SaleStatus } from '@/types/database'
 
 export type SalesEventOption=Pick<BingoEvent,'id'|'name'|'status'|'starts_at'> & {settings:Pick<EventSettings,'currency'|'default_card_price'|'allow_reservations'|'require_buyer_name'|'require_buyer_phone'|'require_buyer_email'|'reservation_minutes'>}
-export type SaleView=Sale&{items:Array<SaleItem&{card:Pick<PhysicalCard,'id'|'code'|'sequence_number'|'status'>}>}
+export type SalesBatchOption=Pick<CardBatch,'id'|'series_code'|'generated_cards'|'physical_format'|'created_at'>
+export type SaleableCard=PhysicalCard&{batch:Pick<CardBatch,'id'|'series_code'>}
+export type SaleView=Sale&{items:Array<SaleItem&{card:Pick<PhysicalCard,'id'|'code'|'sequence_number'|'status'|'batch_id'> & {batch?:Pick<CardBatch,'id'|'series_code'>}}>}
 export type SalesSummary={available:number;reserved:number;sold:number;canceled:number;void:number;totalCards:number;completedAmount:number;completedSales:number}
 
 export async function listSalesEvents(workspaceId:string){
@@ -11,15 +13,23 @@ export async function listSalesEvents(workspaceId:string){
   return (data??[]).map((r:any)=>({...r,settings:r.event_settings})) as SalesEventOption[]
 }
 
+export async function listSalesBatches(workspaceId:string,eventId:string):Promise<SalesBatchOption[]>{
+  const {data,error}=await supabase.from('card_batches').select('id,series_code,generated_cards,physical_format,created_at').eq('workspace_id',workspaceId).eq('event_id',eventId).eq('status','completed').order('created_at',{ascending:false})
+  if(error)throw error
+  return (data??[]) as SalesBatchOption[]
+}
+
 export async function expireReservations(eventId:string){const {error}=await supabase.rpc('expire_event_reservations',{target_event_id:eventId});if(error)throw error}
 
-export async function listSaleableCards(workspaceId:string,eventId:string,filters?:{search?:string;fromSequence?:number;toSequence?:number;limit?:number}){
+export async function listSaleableCards(workspaceId:string,eventId:string,filters?:{batchId?:string;search?:string;fromSequence?:number;toSequence?:number;limit?:number}){
   await expireReservations(eventId)
-  let q=supabase.from('physical_cards').select('*').eq('workspace_id',workspaceId).eq('event_id',eventId).eq('status','available').order('sequence_number').limit(filters?.limit??250)
+  let q=supabase.from('physical_cards').select('*, card_batches!inner(id,series_code)').eq('workspace_id',workspaceId).eq('event_id',eventId).eq('status','available').order('sequence_number').limit(Math.max(1,Math.min(filters?.limit??500,500)))
+  if(filters?.batchId)q=q.eq('batch_id',filters.batchId)
   if(filters?.search)q=q.ilike('code',`%${filters.search.replace(/[%_]/g,'')}%`)
   if(filters?.fromSequence!=null)q=q.gte('sequence_number',filters.fromSequence)
   if(filters?.toSequence!=null)q=q.lte('sequence_number',filters.toSequence)
-  const {data,error}=await q;if(error)throw error;return (data??[]) as PhysicalCard[]
+  const {data,error}=await q;if(error)throw error
+  return (data??[]).map((r:any)=>({...r,batch:r.card_batches})) as SaleableCard[]
 }
 
 export async function getSalesSummary(workspaceId:string,eventId:string):Promise<SalesSummary>{
@@ -36,10 +46,10 @@ export async function getSalesSummary(workspaceId:string,eventId:string):Promise
 
 export async function listEventSales(workspaceId:string,eventId:string,status?:SaleStatus){
   await expireReservations(eventId)
-  let q=supabase.from('sales').select('*, sale_items!inner(*, physical_cards!inner(id,code,sequence_number,status))').eq('workspace_id',workspaceId).eq('event_id',eventId).order('created_at',{ascending:false}).limit(200)
+  let q=supabase.from('sales').select('*, sale_items!inner(*, physical_cards!inner(id,code,sequence_number,status,batch_id,card_batches!inner(id,series_code)))').eq('workspace_id',workspaceId).eq('event_id',eventId).order('created_at',{ascending:false}).limit(200)
   if(status)q=q.eq('status',status)
   const {data,error}=await q;if(error)throw error
-  return (data??[]).map((s:any)=>({...s,items:(s.sale_items??[]).map((i:any)=>({...i,card:i.physical_cards}))})) as SaleView[]
+  return (data??[]).map((s:any)=>({...s,items:(s.sale_items??[]).map((i:any)=>({...i,card:{...i.physical_cards,batch:i.physical_cards?.card_batches}}))})) as SaleView[]
 }
 
 export async function createCardSale(input:{eventId:string;cardIds:string[];buyerName:string;buyerPhone:string;buyerEmail:string;buyerNotes:string;unitPrice:number;reserveOnly:boolean}){

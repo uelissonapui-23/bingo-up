@@ -1,9 +1,10 @@
 import { supabase } from '@/services/supabase/client'
-import type { CardBatch, CardTemplate, GameDefinition, PhysicalCard, PhysicalCardStatus, BingoRuleSet } from '@/types/database'
+import type { CardBatch, CardTemplate, GameDefinition, PhysicalCard, PhysicalCardStatus, BingoRuleSet, Sale, SaleItem } from '@/types/database'
 import { parseCardTemplateOptions } from '@/domain/cards/templateOptions'
 
 export type CardGameView={position:number;definition:GameDefinition}
-export type PhysicalCardView=PhysicalCard&{games:CardGameView[];batch:CardBatch;template:CardTemplate;rule:BingoRuleSet}
+export type CardSaleTrace=Sale&{items:Array<SaleItem&{card_code:string}>}
+export type PhysicalCardView=PhysicalCard&{games:CardGameView[];batch:CardBatch;template:CardTemplate;rule:BingoRuleSet;sale:CardSaleTrace|null}
 
 function templateFromBatchSnapshot(batch:CardBatch,current:CardTemplate):CardTemplate{
   const raw=batch.generation_options?.template_snapshot
@@ -42,7 +43,13 @@ export async function getPhysicalCard(workspaceId:string,eventId:string,cardId:s
   const {data:games,error:ge}=await supabase.from('card_games').select('position, game_definitions!inner(*)').eq('physical_card_id',cardId).order('position');if(ge)throw ge
   const r:any=data
   const batch=r.card_batches as CardBatch;const currentTemplate=r.card_templates as CardTemplate
-  return {...r,batch,template:templateFromBatchSnapshot(batch,currentTemplate),rule:r.bingo_rule_sets,games:(games??[]).map((g:any)=>({position:g.position,definition:g.game_definitions}))} as PhysicalCardView
+  let sale:CardSaleTrace|null=null
+  if(r.current_sale_id){
+    const {data:saleRow,error:saleError}=await supabase.from('sales').select('*, sale_items(*)').eq('id',r.current_sale_id).maybeSingle()
+    if(saleError)throw saleError
+    if(saleRow){sale={...(saleRow as Sale),items:((saleRow as any).sale_items??[]).map((item:SaleItem)=>({...item,card_code:r.code}))} as CardSaleTrace}
+  }
+  return {...r,batch,template:templateFromBatchSnapshot(batch,currentTemplate),rule:r.bingo_rule_sets,games:(games??[]).map((g:any)=>({position:g.position,definition:g.game_definitions})),sale} as PhysicalCardView
 }
 
 export async function getCardBatch(workspaceId:string,eventId:string,batchId:string):Promise<CardBatch>{const {data,error}=await supabase.from('card_batches').select('*').eq('workspace_id',workspaceId).eq('event_id',eventId).eq('id',batchId).single();if(error)throw error;return data as CardBatch}
