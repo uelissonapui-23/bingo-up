@@ -1,14 +1,18 @@
 import { supabase } from '@/services/supabase/client'
 import type { CardBatch, CardTemplate, GameDefinition, PhysicalCard, PhysicalCardStatus, BingoRuleSet } from '@/types/database'
+import { parseCardTemplateOptions } from '@/domain/cards/templateOptions'
 
 export type CardGameView={position:number;definition:GameDefinition}
 export type PhysicalCardView=PhysicalCard&{games:CardGameView[];batch:CardBatch;template:CardTemplate;rule:BingoRuleSet}
 
 function templateFromBatchSnapshot(batch:CardBatch,current:CardTemplate):CardTemplate{
   const raw=batch.generation_options?.template_snapshot
-  if(!raw||typeof raw!=='object'||Array.isArray(raw))return current
+  const artworkRaw=batch.generation_options?.artwork_snapshot
+  const artwork=artworkRaw&&typeof artworkRaw==='object'&&!Array.isArray(artworkRaw)?parseCardTemplateOptions({artwork:artworkRaw}).artwork:undefined
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return artwork?{...current,options:{...current.options,artwork}}:current
   const snapshot=raw as Record<string,unknown>
-  if(snapshot.id!==current.id)return current
+  if(snapshot.id!==current.id)return artwork?{...current,options:{...current.options,artwork}}:current
+  const snapshotOptions=snapshot.options&&typeof snapshot.options==='object'&&!Array.isArray(snapshot.options)?snapshot.options as Record<string,unknown>:current.options
   return {
     ...current,
     name:typeof snapshot.name==='string'?snapshot.name:current.name,
@@ -16,7 +20,7 @@ function templateFromBatchSnapshot(batch:CardBatch,current:CardTemplate):CardTem
     layout_key:typeof snapshot.layout_key==='string'?snapshot.layout_key:current.layout_key,
     orientation:snapshot.orientation==="portrait"||snapshot.orientation==="landscape"?snapshot.orientation:current.orientation,
     page_size:snapshot.page_size==="A4"||snapshot.page_size==="letter"?snapshot.page_size:current.page_size,
-    options:snapshot.options&&typeof snapshot.options==='object'&&!Array.isArray(snapshot.options)?snapshot.options as Record<string,unknown>:current.options,
+    options:artwork?{...snapshotOptions,artwork}:snapshotOptions,
   }
 }
 

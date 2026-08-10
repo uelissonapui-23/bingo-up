@@ -1,6 +1,7 @@
 import { supabase } from '@/services/supabase/client'
 import type { BingoRuleSet, CardBatch, CardTemplate, GameDefinition, GenerationUniquenessMode } from '@/types/database'
 import type { GeneratedPhysicalCard } from '@/domain/cards/generator'
+import type { CardArtworkOptions } from '@/domain/cards/templateOptions'
 
 export async function countGameDefinitions(ruleSetId: string): Promise<number> {
   const { count, error } = await supabase.from('game_definitions').select('id', { count: 'exact', head: true }).eq('rule_set_id', ruleSetId)
@@ -45,6 +46,7 @@ export async function createCardBatch(input: {
   eventId: string
   rule: BingoRuleSet
   template: CardTemplate
+  artwork?: CardArtworkOptions
   seriesCode: string
   requestedCards: number
   startNumber: number
@@ -65,6 +67,7 @@ export async function createCardBatch(input: {
     batch_capacity_snapshot: input.capacitySnapshot,
     batch_generation_options: {
       generator_version: 1,
+      artwork_snapshot: input.artwork ?? null,
       template_snapshot: {
         id: input.template.id,
         name: input.template.name,

@@ -1,7 +1,7 @@
 import { supabase } from '@/services/supabase/client'
 import type { BingoRuleSet, CardTemplate, BingoDistributionMode, CardBannerPosition, CardOrientation, CardPageSize } from '@/types/database'
 import type { ColumnDefinition } from '@/domain/cards/capacity'
-import type { CardTemplateOptions } from '@/domain/cards/templateOptions'
+import { parseCardTemplateOptions, type CardArtworkOptions, type CardTemplateOptions } from '@/domain/cards/templateOptions'
 
 export type CreateRuleInput = {
   name: string; code: string; totalBalls: number; gridRows: number; gridColumns: number; numbersPerGame: number
@@ -43,6 +43,69 @@ export async function listCardTemplates(workspaceId:string,eventId:string):Promi
   const {data,error}=await supabase.from('card_templates').select('*').eq('workspace_id',workspaceId).eq('event_id',eventId).order('physical_format').order('is_default',{ascending:false}).order('created_at')
   if(error) throw error; return (data??[]) as CardTemplate[]
 }
+
+
+function readEventArtwork(settings:Record<string,unknown>|null|undefined):CardArtworkOptions|undefined{
+  const raw=settings?.card_artwork
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return undefined
+  return parseCardTemplateOptions({artwork:raw}).artwork
+}
+
+export async function getEventCardArtwork(workspaceId:string,eventId:string):Promise<CardArtworkOptions|undefined>{
+  const {data,error}=await supabase.from('event_settings').select('settings').eq('workspace_id',workspaceId).eq('event_id',eventId).single()
+  if(error)throw error
+  return readEventArtwork((data?.settings??{}) as Record<string,unknown>)
+}
+
+export async function saveEventCardArtwork(workspaceId:string,eventId:string,input:{artwork:Omit<CardArtworkOptions,'path'> & {path?:string}; artworkFile?:Blob; fallbackPath?:string|null}):Promise<CardArtworkOptions>{
+  const [{data:settingsRow,error:settingsError},{data:templates,error:templatesError}]=await Promise.all([
+    supabase.from('event_settings').select('settings').eq('workspace_id',workspaceId).eq('event_id',eventId).single(),
+    supabase.from('card_templates').select('id,options').eq('workspace_id',workspaceId).eq('event_id',eventId),
+  ])
+  if(settingsError)throw settingsError
+  if(templatesError)throw templatesError
+  const currentSettings=(settingsRow?.settings??{}) as Record<string,unknown>
+  const currentShared=readEventArtwork(currentSettings)
+  const legacyPaths=new Set<string>()
+  for(const row of templates??[]){const legacy=parseCardTemplateOptions((row.options??{}) as Record<string,unknown>).artwork;if(legacy?.path)legacyPaths.add(legacy.path)}
+  if(currentShared?.path)legacyPaths.add(currentShared.path)
+
+  let uploadedPath:string|null=null
+  let persisted=false
+  const sourcePath=input.artwork.path??currentShared?.path??input.fallbackPath??null
+  try{
+    if(input.artworkFile){
+      uploadedPath=`${workspaceId}/${eventId}/artworks/${crypto.randomUUID()}.webp`
+      await uploadAsset(uploadedPath,input.artworkFile)
+    }
+    const path=uploadedPath??sourcePath
+    if(!path)throw new Error('Escolha uma imagem antes de salvar.')
+    const artwork:CardArtworkOptions={path,zoom:input.artwork.zoom,offsetX:input.artwork.offsetX,offsetY:input.artwork.offsetY,quality:input.artwork.quality,fit:input.artwork.fit}
+    const nextSettings={...currentSettings,card_artwork:artwork}
+    const {data:updatedSettings,error:updateSettingsError}=await supabase.from('event_settings').update({settings:nextSettings}).eq('workspace_id',workspaceId).eq('event_id',eventId).select('settings').single()
+    if(updateSettingsError)throw updateSettingsError
+    if(!readEventArtwork((updatedSettings?.settings??{}) as Record<string,unknown>))throw new Error('A imagem do evento não foi persistida.')
+    persisted=true
+
+    // A arte é do evento, não do modelo. Removemos referências antigas dos modelos,
+    // preservando as demais opções (por exemplo, o coringa) para evitar duplicação.
+    const cleanupResults=await Promise.allSettled((templates??[]).map(async row=>{
+      const nextOptions={...((row.options??{}) as Record<string,unknown>)}
+      delete nextOptions.artwork
+      const {error}=await supabase.from('card_templates').update({options:nextOptions}).eq('workspace_id',workspaceId).eq('event_id',eventId).eq('id',row.id)
+      if(error)throw error
+    }))
+    if(cleanupResults.some(result=>result.status==='rejected'))console.warn('A arte do evento foi salva, mas algumas referências antigas de modelos não puderam ser limpas agora.')
+
+    legacyPaths.delete(path)
+    if(legacyPaths.size)await supabase.storage.from('card-artworks').remove([...legacyPaths]).catch(()=>{})
+    return artwork
+  }catch(error){
+    if(uploadedPath&&!persisted)await supabase.storage.from('card-artworks').remove([uploadedPath]).catch(()=>{})
+    throw error
+  }
+}
+
 export async function createCardTemplate(workspaceId:string,eventId:string,input:CreateTemplateInput){
   const options:CardTemplateOptions=input.options??{version:1}
   const uploaded:string[]=[]
