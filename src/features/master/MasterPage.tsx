@@ -26,10 +26,30 @@ export function MasterPage() {
   const [tab, setTab] = useState<Tab>('overview'); const [dashboard, setDashboard] = useState<MasterDashboard>(emptyDashboard)
   const [workspaces, setWorkspaces] = useState<MasterWorkspaceRow[]>([]); const [users, setUsers] = useState<MasterUserRow[]>([]); const [plans, setPlans] = useState<CommercialPlan[]>([]); const [audit, setAudit] = useState<MasterAuditRow[]>([])
   const [branding, setBranding] = useState<PlatformBranding>(emptyBranding); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [notice, setNotice] = useState<string | null>(null); const [error, setError] = useState<string | null>(null)
-  async function load() { setError(null); setLoading(true); try { const [d,w,u,p,b,a]=await Promise.all([getMasterDashboard(),listMasterWorkspaces(),listMasterUsers(),listMasterPlans(),getPlatformBranding(),listMasterAudit()]); setDashboard(d);setWorkspaces(w);setUsers(u);setPlans(p);setBranding(b);setAudit(a) } catch(e){ console.error('[Master] Falha ao carregar:',e);setError(e instanceof Error?`Falha ao carregar o Master: ${e.message}`:'Falha ao carregar o painel Master.') } finally { setLoading(false) } }
+  async function load() {
+    setError(null); setLoading(true)
+    const requests = await Promise.allSettled([getMasterDashboard(),listMasterWorkspaces(),listMasterUsers(),listMasterPlans(),getPlatformBranding(),listMasterAudit()] as const)
+    const failures: string[] = []
+    const [d,w,u,p,b,a] = requests
+    if(d.status==='fulfilled')setDashboard(d.value);else failures.push('resumo')
+    if(w.status==='fulfilled')setWorkspaces(w.value);else failures.push('clientes')
+    if(u.status==='fulfilled')setUsers(u.value);else failures.push('usuários')
+    if(p.status==='fulfilled')setPlans(p.value);else failures.push('planos')
+    if(b.status==='fulfilled')setBranding(b.value);else failures.push('marca')
+    if(a.status==='fulfilled')setAudit(a.value);else failures.push('auditoria')
+    for(const result of requests)if(result.status==='rejected')console.error('[Master] Falha parcial ao carregar:',result.reason)
+    if(failures.length)setError(`Algumas áreas não puderam ser atualizadas: ${failures.join(', ')}. Os dados carregados continuam disponíveis.`)
+    setLoading(false)
+  }
   useEffect(()=>{void load()},[])
   async function run(action:()=>Promise<void>,success:string){setBusy(true);setError(null);setNotice(null);try{await action();setNotice(success);await load()}catch(e){setError(e instanceof Error?e.message:'Não foi possível concluir a operação.')}finally{setBusy(false)}}
-  async function chooseLogo(kind:'main'|'auth'|'compact'|'public-panel',event:ChangeEvent<HTMLInputElement>){const file=event.target.files?.[0];if(!file)return;await run(async()=>{const path=await uploadPlatformLogo(kind,file);const next={...branding,...(kind==='main'?{main_logo_path:path}:kind==='auth'?{auth_logo_path:path}:kind==='compact'?{compact_logo_path:path}:{public_panel_logo_path:path})};await updatePlatformBranding(next);await refreshBranding()},'Logo atualizada em toda a plataforma.');event.target.value=''}
+  async function chooseLogo(kind:'main'|'auth'|'compact'|'public-panel',event:ChangeEvent<HTMLInputElement>){
+    const file=event.target.files?.[0];if(!file)return
+    const allowed=new Set(['image/png','image/jpeg','image/webp'])
+    if(!allowed.has(file.type)){setError('Formato de logo não permitido. Use PNG, JPG ou WebP.');event.target.value='';return}
+    if(file.size>5*1024*1024){setError('A logo deve ter no máximo 5 MB.');event.target.value='';return}
+    await run(async()=>{const path=await uploadPlatformLogo(kind,file);const next={...branding,...(kind==='main'?{main_logo_path:path}:kind==='auth'?{auth_logo_path:path}:kind==='compact'?{compact_logo_path:path}:{public_panel_logo_path:path})};await updatePlatformBranding(next);await refreshBranding()},'Logo atualizada em toda a plataforma.');event.target.value=''
+  }
   return <main className="bingoup-app min-h-dvh bg-slate-950 p-3 text-slate-100 md:p-6"><div className="mx-auto max-w-[1500px] space-y-4">
     <header className="rounded-3xl border border-red-900/40 bg-slate-900/80 p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-black uppercase tracking-[.24em] text-red-400">BINGOUP MASTER</p><h1 className="mt-1 text-3xl font-black">Central da plataforma</h1><p className="mt-1 text-sm text-slate-400">Clientes, usuários, permissões, planos, bloqueios e identidade em áreas separadas.</p></div><div className="flex gap-2"><Button variant="secondary" disabled={loading||busy} onClick={()=>void load()}>Atualizar</Button><Button variant="secondary" onClick={()=>void signOut()}>Sair</Button></div></div></header>
     {notice&&<Banner kind="success">{notice}</Banner>}{error&&<Banner kind="error">{error}</Banner>}
@@ -76,6 +96,6 @@ function Banner({kind,children}:{kind:'success'|'error';children:React.ReactNode
 function StatusBadge({status}:{status:string}){const ok=status==='active';return <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${ok?'bg-emerald-950 text-emerald-300':'bg-red-950 text-red-300'}`}>{status==='active'?'Ativo':status==='suspended'?'Suspenso':'Expirado'}</span>}
 function UserStatus({status}:{status:string}){return <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${status==='active'?'bg-emerald-950 text-emerald-300':status==='master'?'bg-red-950 text-red-300':'bg-amber-950 text-amber-300'}`}>{status==='active'?'Ativo':status==='master'?'Master':'Bloqueado'}</span>}
 function Empty({text}:{text:string}){return <div className="rounded-xl border border-dashed border-slate-700 p-5 text-center text-sm text-slate-500">{text}</div>}
-function LogoUpload({label,disabled,onChange}:{label:string;disabled:boolean;onChange:(event:ChangeEvent<HTMLInputElement>)=>void}){return <label className="cursor-pointer rounded-2xl border border-dashed border-slate-700 bg-slate-950/30 p-4 text-center"><span className="block text-sm font-black text-white">{label}</span><span className="mt-1 block text-xs text-slate-500">Clique para substituir</span><input className="hidden" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" disabled={disabled} onChange={onChange}/></label>}
+function LogoUpload({label,disabled,onChange}:{label:string;disabled:boolean;onChange:(event:ChangeEvent<HTMLInputElement>)=>void}){return <label className="cursor-pointer rounded-2xl border border-dashed border-slate-700 bg-slate-950/30 p-4 text-center"><span className="block text-sm font-black text-white">{label}</span><span className="mt-1 block text-xs text-slate-500">Clique para substituir</span><input className="hidden" type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={onChange}/></label>}
 function money(value:number){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value)||0)}
 function auditLabel(action:string){return ({'workspace.license_updated':'Licença alterada','user.access_updated':'Acesso de usuário alterado','user.membership_updated':'Permissão de usuário alterada','commercial.plan_saved':'Plano comercial salvo','platform.branding_updated':'Identidade global alterada'} as Record<string,string>)[action]??action}

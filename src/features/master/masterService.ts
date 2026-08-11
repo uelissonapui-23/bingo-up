@@ -33,4 +33,11 @@ export async function updateMembership(input: { workspaceId: string; userId: str
 
 export async function getPlatformBranding(): Promise<PlatformBranding> { const { data, error } = await supabase.rpc('get_public_platform_branding'); if (error) throw error; return data as PlatformBranding }
 export async function updatePlatformBranding(branding: PlatformBranding) { const { error } = await supabase.rpc('master_update_platform_branding', { target_app_name: branding.app_name, target_main_logo_path: branding.main_logo_path, target_auth_logo_path: branding.auth_logo_path, target_compact_logo_path: branding.compact_logo_path, target_public_panel_logo_path: branding.public_panel_logo_path }); if (error) throw error }
-export async function uploadPlatformLogo(kind: 'main' | 'auth' | 'compact' | 'public-panel', file: File) { const ext = file.name.split('.').pop()?.toLowerCase() || 'png'; const path = `${kind}/${kind}-${Date.now()}.${ext}`; const { error } = await supabase.storage.from('platform-branding').upload(path, file, { upsert: false, contentType: file.type }); if (error) throw error; return path }
+export async function uploadPlatformLogo(kind: 'main' | 'auth' | 'compact' | 'public-panel', file: File) {
+  const extensions: Record<string,string> = { 'image/png':'png', 'image/jpeg':'jpg', 'image/webp':'webp' }
+  const ext=extensions[file.type]
+  if(!ext)throw new Error('Formato de logo não permitido. Use PNG, JPG ou WebP.')
+  if(file.size>5*1024*1024)throw new Error('A logo deve ter no máximo 5 MB.')
+  const path = `${kind}/${kind}-${Date.now()}-${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from('platform-branding').upload(path, file, { upsert: false, contentType: file.type, cacheControl:'3600' }); if (error) throw error; return path
+}
