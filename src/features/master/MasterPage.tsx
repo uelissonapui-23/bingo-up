@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useAuth } from '@/app/providers/AuthProvider'
+import { MasterSupportTab } from './MasterSupportTab'
 import { usePlatformBrand } from '@/components/brand/PlatformBrandProvider'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -12,13 +13,13 @@ import {
   type MasterWorkspaceRow, type MembershipStatus, type PlatformBranding, type WorkspaceRole,
 } from './masterService'
 
-type Tab = 'overview' | 'clients' | 'users' | 'plans' | 'brand' | 'audit'
+type Tab = 'overview' | 'clients' | 'users' | 'plans' | 'support' | 'brand' | 'audit'
 const emptyDashboard: MasterDashboard = { workspaces_total: 0, workspaces_active: 0, events_total: 0, users_total: 0, cards_sold: 0, sales_amount: 0 }
 const emptyBranding: PlatformBranding = { app_name: 'BINGOUP', main_logo_path: null, auth_logo_path: null, compact_logo_path: null, public_panel_logo_path: null }
 const tabs: Array<{ id: Tab; label: string; hint: string }> = [
   { id: 'overview', label: 'Visão geral', hint: 'Resumo da plataforma' }, { id: 'clients', label: 'Clientes', hint: 'Acessos e licenças' },
   { id: 'users', label: 'Usuários', hint: 'Permissões e bloqueios' }, { id: 'plans', label: 'Planos', hint: 'Pacotes comerciais' },
-  { id: 'brand', label: 'Marca', hint: 'Logos e identidade' }, { id: 'audit', label: 'Auditoria', hint: 'Ações do Master' },
+  { id: 'support', label: 'Suporte', hint: 'Mensagens e liberações' }, { id: 'brand', label: 'Marca', hint: 'Logos e identidade' }, { id: 'audit', label: 'Auditoria', hint: 'Ações do Master' },
 ]
 
 export function MasterPage() {
@@ -53,12 +54,13 @@ export function MasterPage() {
   return <main className="bingoup-app min-h-dvh bg-slate-950 p-3 text-slate-100 md:p-6"><div className="mx-auto max-w-[1500px] space-y-4">
     <header className="rounded-3xl border border-red-900/40 bg-slate-900/80 p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-black uppercase tracking-[.24em] text-red-400">BINGOUP MASTER</p><h1 className="mt-1 text-3xl font-black">Central da plataforma</h1><p className="mt-1 text-sm text-slate-400">Clientes, usuários, permissões, planos, bloqueios e identidade em áreas separadas.</p></div><div className="flex gap-2"><Button variant="secondary" disabled={loading||busy} onClick={()=>void load()}>Atualizar</Button><Button variant="secondary" onClick={()=>void signOut()}>Sair</Button></div></div></header>
     {notice&&<Banner kind="success">{notice}</Banner>}{error&&<Banner kind="error">{error}</Banner>}
-    <nav className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Áreas do Master">{tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={`rounded-2xl border p-3 text-left transition ${tab===t.id?'border-red-500 bg-red-950/30':'border-slate-800 bg-slate-900/70 hover:border-slate-600'}`}><strong className="block text-sm text-white">{t.label}</strong><span className="mt-1 block text-[11px] text-slate-400">{t.hint}</span></button>)}</nav>
+    <nav className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7" aria-label="Áreas do Master">{tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={`rounded-2xl border p-3 text-left transition ${tab===t.id?'border-red-500 bg-red-950/30':'border-slate-800 bg-slate-900/70 hover:border-slate-600'}`}><strong className="block text-sm text-white">{t.label}</strong><span className="mt-1 block text-[11px] text-slate-400">{t.hint}</span></button>)}</nav>
     {loading?<Card><p className="text-sm text-slate-400">Carregando dados da plataforma…</p></Card>:<>
       {tab==='overview'&&<Overview dashboard={dashboard} workspaces={workspaces} users={users} onGo={setTab}/>}
       {tab==='clients'&&<ClientsTab workspaces={workspaces} plans={plans} busy={busy} onSave={(row,patch)=>run(()=>updateWorkspaceAccess({workspaceId:row.workspace_id,accessStatus:patch.access_status,planCode:patch.plan_code,eventLimit:patch.event_limit,validUntil:patch.valid_until,notes:patch.notes}),`Acesso de ${row.name} atualizado.`)}/>}
       {tab==='users'&&<UsersTab users={users} busy={busy} onUserAccess={(user,status,reason)=>run(()=>updateUserAccess(user.user_id,status,reason),`Acesso de ${user.email??user.display_name??'usuário'} atualizado.`)} onMembership={(user,membership,role,status)=>run(()=>updateMembership({workspaceId:membership.workspace_id,userId:user.user_id,role,status}),`Permissão atualizada em ${membership.workspace_name}.`)}/>}
       {tab==='plans'&&<PlansTab plans={plans} busy={busy} onSave={plan=>run(()=>saveCommercialPlan(plan),`Plano ${plan.name} salvo.`)}/>}
+      {tab==='support'&&<MasterSupportTab/>}
       {tab==='brand'&&<BrandTab branding={branding} busy={busy} setBranding={setBranding} onSave={()=>run(async()=>{await updatePlatformBranding(branding);await refreshBranding()},'Identidade global atualizada.')} onLogo={chooseLogo}/>}
       {tab==='audit'&&<AuditTab rows={audit}/>}
     </>}
@@ -98,4 +100,4 @@ function UserStatus({status}:{status:string}){return <span className={`rounded-f
 function Empty({text}:{text:string}){return <div className="rounded-xl border border-dashed border-slate-700 p-5 text-center text-sm text-slate-500">{text}</div>}
 function LogoUpload({label,disabled,onChange}:{label:string;disabled:boolean;onChange:(event:ChangeEvent<HTMLInputElement>)=>void}){return <label className="cursor-pointer rounded-2xl border border-dashed border-slate-700 bg-slate-950/30 p-4 text-center"><span className="block text-sm font-black text-white">{label}</span><span className="mt-1 block text-xs text-slate-500">Clique para substituir</span><input className="hidden" type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={onChange}/></label>}
 function money(value:number){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value)||0)}
-function auditLabel(action:string){return ({'workspace.license_updated':'Licença alterada','user.access_updated':'Acesso de usuário alterado','user.membership_updated':'Permissão de usuário alterada','commercial.plan_saved':'Plano comercial salvo','platform.branding_updated':'Identidade global alterada'} as Record<string,string>)[action]??action}
+function auditLabel(action:string){return ({'workspace.license_updated':'Licença alterada','user.access_updated':'Acesso de usuário alterado','user.membership_updated':'Permissão de usuário alterada','commercial.plan_saved':'Plano comercial salvo','platform.branding_updated':'Identidade global alterada','support.settings_updated':'Atendimento atualizado'} as Record<string,string>)[action]??action}

@@ -24,12 +24,12 @@ export function RegisterPage() {
       options: { data: { display_name: name.trim() } }
     })
     if (error) setError(error.message.includes('registered') ? 'Este e-mail já possui uma conta.' : 'Não foi possível criar a conta.')
-    else if (data.session) setMessage('Conta criada. Preparando seu acesso...')
-    else setMessage('Conta criada. Confirme o e-mail para continuar.')
+    else if (data.session) setMessage('Conta criada. Seu acesso ficará aguardando liberação da equipe responsável.')
+    else setMessage('Conta criada. Confirme o e-mail; depois seu acesso ficará aguardando liberação.')
     setBusy(false)
   }
 
-  return <AuthFrame title="Criar conta do organizador" subtitle="Comece com um único organizador. A estrutura já suporta expansão futura.">
+  return <AuthFrame title="Criar conta do organizador" subtitle="Crie sua conta. O acesso é liberado pela equipe responsável após a confirmação comercial.">
     <form onSubmit={submit} className="space-y-4">
       <Field label="Seu nome"><Input required autoComplete="name" value={name} onChange={e=>setName(e.target.value)} /></Field>
       <Field label="E-mail"><Input type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} /></Field>
