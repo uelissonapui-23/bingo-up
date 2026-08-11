@@ -271,6 +271,10 @@
 /* Classic: broadcast scoreboard, bold horizontal hierarchy. */
 .tv-theme-classic{--tv-panel-radius:24px;--tv-cell-radius:7px;--tv-panel-shadow:0 12px 35px rgba(0,0,0,.22)}
 .tv-theme-classic:before{background:radial-gradient(circle at 100% 0%,color-mix(in srgb,var(--tv-accent) 10%,transparent),transparent 34%)}
+/* Logo exclusiva da tela publica: maior e legivel na TV sem ocupar a area do sorteio. */
+.tv-public-logo{width:auto;height:clamp(2.75rem,6.2vh,5.25rem);max-width:clamp(7rem,15vw,13rem);object-fit:contain;object-position:left center}
+@media (max-aspect-ratio:9/10){.tv-public-logo{height:clamp(2.25rem,5vh,3.75rem);max-width:clamp(5.5rem,22vw,9rem)}}
+@media (min-width:1600px) and (min-aspect-ratio:16/10){.tv-public-logo{height:clamp(3.5rem,7vh,6.5rem);max-width:clamp(9rem,17vw,16rem)}}
 .tv-theme-classic .tv-public-header{border-bottom-width:2px}
 .tv-theme-classic .tv-round-title{letter-spacing:-.035em}
 .tv-theme-classic .tv-board-letter{transform:skewX(-2deg)}
