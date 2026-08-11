@@ -11,6 +11,8 @@ describe('fase 14 - homologacao para venda',()=>{
     expect(migration).toContain("if not public.is_platform_owner()")
     expect(migration).toContain('workspaces_without_license')
     expect(migration).toContain("status='detected'")
+    expect(migration).toContain("status in ('active','paused')")
+    expect(migration).not.toContain("status in ('open','paused')")
   })
   it('inclui roteiro operacional completo sem remover protecoes',()=>{
     expect(master).toContain("label: 'Homologação'")

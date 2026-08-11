@@ -1,4 +1,4 @@
--- Fase 14 - Homologacao para venda.
+-- Corrige a homologacao automatica: draw_sessions usa status active/paused, nao open/paused.
 -- Diagnostico somente leitura para o platform_owner. Nao altera dados operacionais.
 
 create or replace function public.master_get_homologation_status()

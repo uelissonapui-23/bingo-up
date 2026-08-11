@@ -22,7 +22,22 @@ export function MasterHomologationTab(){
   const [loading,setLoading]=useState(true)
   const [error,setError]=useState<string|null>(null)
   const [done,setDone]=useState<Record<string,boolean>>(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)??'{}') as Record<string,boolean>}catch{return {}}})
-  async function load(){setLoading(true);setError(null);try{setStatus(await getMasterHomologationStatus())}catch(e){setError(e instanceof Error?e.message:'Não foi possível executar a homologação automática.')}finally{setLoading(false)}}
+  async function load(){
+    setLoading(true)
+    setError(null)
+    try{
+      setStatus(await getMasterHomologationStatus())
+    }catch(e:unknown){
+      const message=e instanceof Error
+        ? e.message
+        : typeof e==='object'&&e!==null&&'message' in e&&typeof (e as {message?:unknown}).message==='string'
+          ? (e as {message:string}).message
+          : 'Não foi possível executar a homologação automática.'
+      setError(message)
+    }finally{
+      setLoading(false)
+    }
+  }
   useEffect(()=>{void load()},[])
   function toggle(id:string){setDone(current=>{const next={...current,[id]:!current[id]};localStorage.setItem(STORAGE_KEY,JSON.stringify(next));return next})}
   const completed=useMemo(()=>MANUAL.filter(([id])=>done[id]).length,[done])
