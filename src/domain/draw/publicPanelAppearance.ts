@@ -23,6 +23,7 @@ export type PublicPanelAppearance={
   show_recent_numbers:boolean
   show_counters:boolean
   animated_frame:boolean
+  event_contact:string
   use_custom_colors:boolean
   custom_colors:Partial<PublicPanelColors>
 }
@@ -39,7 +40,7 @@ export const PUBLIC_PANEL_THEME_PALETTES:Record<PublicPanelTheme,PublicPanelColo
   colorful:{background:'#080b16',panel:'#11182b',panel_alt:'#17233e',accent:'#5ee7ff',accent_secondary:'#ff6bb5',text:'#ffffff',line:'#35517e',hot:'#ffd75a',called_text:'#08111f'},
 }
 
-export const DEFAULT_PUBLIC_PANEL_APPEARANCE:PublicPanelAppearance={theme:'classic',board_style:'blocks',ball_animation:'zoom',victory_animation:'confetti',animation_intensity:'normal',show_round_name:true,show_prize:true,show_recent_numbers:true,show_counters:true,animated_frame:false,use_custom_colors:false,custom_colors:{}}
+export const DEFAULT_PUBLIC_PANEL_APPEARANCE:PublicPanelAppearance={theme:'classic',board_style:'blocks',ball_animation:'zoom',victory_animation:'confetti',animation_intensity:'normal',show_round_name:true,show_prize:true,show_recent_numbers:true,show_counters:true,animated_frame:false,event_contact:'',use_custom_colors:false,custom_colors:{}}
 
 const oneOf=<T extends readonly string[]>(value:unknown,allowed:T,fallback:T[number]):T[number]=>allowed.includes(value as T[number])?value as T[number]:fallback
 const HEX=/^#[0-9a-f]{6}$/i
@@ -62,6 +63,7 @@ export function normalizePublicPanelAppearance(value:unknown):PublicPanelAppeara
     show_recent_numbers:typeof raw.show_recent_numbers==='boolean'?raw.show_recent_numbers:true,
     show_counters:typeof raw.show_counters==='boolean'?raw.show_counters:true,
     animated_frame:typeof raw.animated_frame==='boolean'?raw.animated_frame:false,
+    event_contact:typeof raw.event_contact==='string'?raw.event_contact.trim().slice(0,80):'',
     use_custom_colors:typeof raw.use_custom_colors==='boolean'?raw.use_custom_colors:false,
     custom_colors:normalizeColors(raw.custom_colors),
   }
