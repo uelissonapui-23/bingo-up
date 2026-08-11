@@ -5,6 +5,7 @@ import { useAuth } from '@/app/providers/AuthProvider'
 import { useWorkspace } from '@/app/providers/WorkspaceProvider'
 import { Button } from '@/components/ui/Button'
 import { PwaStatus } from '@/components/ui/PwaStatus'
+import { usePlatformBrand } from '@/components/brand/PlatformBrandProvider'
 
 const organizerNav = [
   ['/', 'Início', 'home'],
@@ -32,6 +33,7 @@ const bottomOrganizerNav = organizerNav.filter(([path]) => ['/', '/eventos', '/c
 
 export function AppShell() {
   const { signOut } = useAuth()
+  const { mainLogoUrl, app_name } = usePlatformBrand()
   const { currentWorkspace, workspaces, selectWorkspace } = useWorkspace()
   const [menuOpen, setMenuOpen] = useState(false)
   const location=useLocation()
@@ -48,7 +50,7 @@ export function AppShell() {
     <div className="bingoup-app min-h-dvh">
       <aside className="bingoup-sidebar hidden xl:flex">
         <NavLink to="/" className="bingoup-brand">
-          <img src="/brand/bingoup-logo-dark.png" alt="BINGOUP" />
+          <img src={mainLogoUrl} alt={app_name} />
         </NavLink>
         <nav className="bingoup-side-nav">
           {mainNav.map(([path, label, icon]) => (
@@ -76,11 +78,11 @@ export function AppShell() {
               <span></span><span></span><span></span>
             </button>
             <NavLink to="/" className="min-w-0 xl:hidden">
-              <img className="bingoup-top-logo" src="/brand/bingoup-logo-dark.png" alt="BINGOUP" />
+              <img className="bingoup-top-logo" src={mainLogoUrl} alt={app_name} />
             </NavLink>
           </div>
           <div className="bingoup-top-actions">
-            <span className="bingoup-phase">Fase 12</span>
+            <span className="bingoup-phase">Produção</span>
             <div className="hidden min-w-0 text-right sm:block">
               <p className="truncate text-sm font-bold text-white">{currentWorkspace?.name}</p>
               <p className="text-xs text-slate-400">{isSeller?'Vendedor':isOperator?'Operador de sorteio':'Organizador'}</p>
@@ -95,7 +97,7 @@ export function AppShell() {
       {menuOpen && <div className="bingoup-drawer-layer xl:hidden" role="presentation" onClick={() => setMenuOpen(false)}>
         <aside className="bingoup-drawer" role="dialog" aria-modal="true" aria-label="Menu principal" onClick={event => event.stopPropagation()}>
           <div className="bingoup-drawer-head">
-            <img src="/brand/bingoup-logo-dark.png" alt="BINGOUP" />
+            <img src={mainLogoUrl} alt={app_name} />
             <button type="button" className="bingoup-drawer-close" onClick={() => setMenuOpen(false)} aria-label="Fechar menu">×</button>
           </div>
           <nav className="bingoup-side-nav">

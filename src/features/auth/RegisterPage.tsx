@@ -4,6 +4,7 @@ import { supabase } from '@/services/supabase/client'
 import { useAuth } from '@/app/providers/AuthProvider'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { usePlatformBrand } from '@/components/brand/PlatformBrandProvider'
 
 export function RegisterPage() {
   const { user } = useAuth()
@@ -43,6 +44,7 @@ export function RegisterPage() {
 }
 
 export function AuthFrame({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return <main className="bingoup-auth"><section className="bingoup-auth-card"><img className="bingoup-auth-logo" src="/brand/bingoup-logo-dark.png" alt="BINGOUP - Sistema de Bingo Computadorizado"/><div className="mb-6"><h1 className="text-2xl font-black text-white">{title}</h1><p className="mt-1 text-sm text-slate-400">{subtitle}</p></div>{children}</section></main>
+  const { authLogoUrl, app_name } = usePlatformBrand()
+  return <main className="bingoup-auth"><section className="bingoup-auth-card"><img className="bingoup-auth-logo" src={authLogoUrl} alt={`${app_name} - Sistema de Bingo Computadorizado`}/><div className="mb-6"><h1 className="text-2xl font-black text-white">{title}</h1><p className="mt-1 text-sm text-slate-400">{subtitle}</p></div>{children}</section></main>
 }
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block text-sm font-medium text-slate-200">{label}<div className="mt-1">{children}</div></label> }
