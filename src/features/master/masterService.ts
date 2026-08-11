@@ -18,6 +18,13 @@ export type MasterUserRow = { user_id: string; email: string | null; display_nam
 export type MasterAuditRow = { id: number; actor_email: string | null; action: string; target_workspace_id: string | null; workspace_name: string | null; metadata: Record<string, unknown>; created_at: string }
 
 export type HomologationCheck = { id: string; level: 'ok' | 'info' | 'warning' | 'critical'; title: string; detail: string }
+
+export type HomologationPendingWinner = { id:string; event_id:string; event_name:string; session_id:string; session_number:number; session_name:string; card_code:string|null; game_position:number|null; detected_at:string }
+export type HomologationOpenDraw = { session_id:string; event_id:string; event_name:string; session_number:number; session_name:string; status:'active'|'paused'; called_count:number; participant_games:number; started_at:string }
+export type HomologationPendingAccess = { user_id:string; email:string|null; display_name:string|null; reason:string|null; created_at:string }
+export type HomologationSupportThread = { thread_id:string; user_id:string; email:string|null; display_name:string|null; subject:string; last_message_at:string }
+export type HomologationDetails = { pending_winners:HomologationPendingWinner[]; open_draw_sessions:HomologationOpenDraw[]; pending_access_users:HomologationPendingAccess[]; open_support_threads:HomologationSupportThread[] }
+
 export type HomologationStatus = {
   status: 'ready' | 'attention' | 'critical'
   checked_at: string
@@ -32,6 +39,7 @@ export async function listMasterPlans(): Promise<CommercialPlan[]> { const { dat
 export async function listMasterUsers(): Promise<MasterUserRow[]> { const { data, error } = await supabase.rpc('list_master_users'); if (error) throw error; return (data ?? []) as MasterUserRow[] }
 export async function listMasterAudit(limit = 80): Promise<MasterAuditRow[]> { const { data, error } = await supabase.rpc('list_master_audit', { limit_rows: limit }); if (error) throw error; return (data ?? []) as MasterAuditRow[] }
 export async function getMasterHomologationStatus(): Promise<HomologationStatus> { const { data, error } = await supabase.rpc('master_get_homologation_status'); if (error) throw error; return data as HomologationStatus }
+export async function getMasterHomologationDetails(): Promise<HomologationDetails> { const { data, error } = await supabase.rpc('master_get_homologation_details'); if (error) throw error; return data as HomologationDetails }
 
 export async function updateWorkspaceAccess(input: { workspaceId: string; accessStatus: AccessStatus; planCode: string | null; eventLimit: number | null; validUntil: string | null; notes: string | null }) {
   const { error } = await supabase.rpc('master_update_workspace_access_v2', { target_workspace_id: input.workspaceId, target_access_status: input.accessStatus, target_plan_code: input.planCode, target_event_limit: input.eventLimit, target_valid_until: input.validUntil, target_notes: input.notes }); if (error) throw error
