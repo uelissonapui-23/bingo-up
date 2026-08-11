@@ -6,7 +6,14 @@ import {markedNumbers,normalizeCalledNumbers} from '@/domain/cards/publicDigital
 export function PublicCardPlaceholderPage(){
   const {token}=useParams();const [state,setState]=useState<PublicDigitalCardState|null>(null);const [error,setError]=useState<string|null>(null);const busy=useRef(false)
   const load=useCallback(async()=>{if(!token||busy.current)return;busy.current=true;try{const next=await getPublicDigitalCard(token);setState(next);setError(null)}catch{setError('Não foi possível sincronizar a cartela agora.')}finally{busy.current=false}},[token])
-  useEffect(()=>{void load();const id=window.setInterval(()=>void load(),2000);const online=()=>void load();document.addEventListener('visibilitychange',online);window.addEventListener('online',online);return()=>{window.clearInterval(id);document.removeEventListener('visibilitychange',online);window.removeEventListener('online',online)}},[load])
+  useEffect(()=>{
+    const sync=()=>{if(document.visibilityState==='visible')void load()}
+    sync()
+    const id=window.setInterval(sync,2000)
+    document.addEventListener('visibilitychange',sync)
+    window.addEventListener('online',sync)
+    return()=>{window.clearInterval(id);document.removeEventListener('visibilitychange',sync);window.removeEventListener('online',sync)}
+  },[load])
   const called=useMemo(()=>normalizeCalledNumbers(state?.draw?.called_numbers),[state?.draw?.called_numbers])
   if(!state&&!error)return <Shell><p className="text-center text-slate-300">Carregando sua cartela…</p></Shell>
   if(state&&!state.available)return <Shell><div className="text-center"><p className="text-sm font-black uppercase tracking-[.2em] text-amber-400">Cartela digital</p><h1 className="mt-3 text-3xl font-black">Acesso ainda não liberado</h1><p className="mt-3 text-sm text-slate-300">A cartela digital fica disponível somente depois que a venda da cartela física é concluída.</p></div></Shell>
