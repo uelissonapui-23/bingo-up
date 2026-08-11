@@ -8,6 +8,8 @@ import { Select } from '@/components/ui/Select'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { deleteUnusedCardBatch, listCardBatches } from '@/features/card-generator/cardGenerationService'
 import { listEventCards } from './cardService'
+import { downloadLayoutGuidePng } from '@/domain/cards/artwork'
+import { getCardLayoutPreset } from '@/domain/cards/layouts'
 import type { CardBatch, PhysicalCard, PhysicalCardStatus } from '@/types/database'
 
 const labels: Record<PhysicalCardStatus, string> = { available:'Disponível', reserved:'Reservada', sold:'Vendida', canceled:'Cancelada', void:'Anulada' }
@@ -57,6 +59,15 @@ export function CardsPage() {
     if (value) next.set('lote', value)
     else next.delete('lote')
     setSearchParams(next, { replace: true })
+  }
+
+
+  function downloadBatchGuide(batch: CardBatch) {
+    const snapshot = (batch.generation_options?.template_snapshot ?? null) as { layout_key?: string; physical_format?: number } | null
+    const format = (snapshot?.physical_format ?? batch.physical_format) as 1 | 2 | 3
+    const preset = getCardLayoutPreset(snapshot?.layout_key ?? '', format)
+    if (!preset) { setError('Não foi possível localizar o layout usado neste lote.'); return }
+    downloadLayoutGuidePng(preset.key, format, preset.gameAreas)
   }
 
   async function removeBatch(batch: CardBatch) {
@@ -115,7 +126,7 @@ export function CardsPage() {
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <Button variant="secondary" disabled={busy} onClick={() => chooseBatch(batch.id)}>{batch.id === batchId ? 'Lote selecionado' : 'Visualizar cartelas'}</Button>
-            <Link to={`/eventos/${eventId}/cartelas/lote/${batch.id}/imprimir`}><Button className="w-full">Impressão / PDF</Button></Link>
+            <Link to={`/eventos/${eventId}/cartelas/lote/${batch.id}/imprimir`}><Button className="w-full">Impressão / PDF</Button></Link><Button variant="secondary" className="sm:col-span-2" onClick={()=>downloadBatchGuide(batch)}>Baixar gabarito PNG</Button>
           </div>
           <div className="mt-2 flex justify-end"><button type="button" disabled={busy} onClick={() => void removeBatch(batch)} className="rounded-lg px-3 py-2 text-xs font-bold text-red-400 transition hover:bg-red-950/35 hover:text-red-300 disabled:opacity-50">Excluir lote</button></div>
         </div>)}</div>}
@@ -128,7 +139,7 @@ export function CardsPage() {
         <label className="text-sm font-semibold">Lote<Select value={batchId} onChange={(event) => chooseBatch(event.target.value)} className="mt-1"><option value="">Todos os lotes</option>{completedBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.series_code} · {batch.generated_cards} cartelas</option>)}</Select></label>
         <label className="text-sm font-semibold">Status<Select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1"><option value="">Todos</option>{Object.entries(labels).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</Select></label>
       </div>
-      {selectedBatch && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-900/30 bg-red-950/15 p-3"><p className="text-sm text-slate-300"><strong className="text-white">Série {selectedBatch.series_code}</strong> · {selectedBatch.physical_format} em 1 · {selectedBatch.generated_cards} cartelas</p><Link to={`/eventos/${eventId}/cartelas/lote/${selectedBatch.id}/imprimir`} className="text-sm font-black text-red-400">Configurar impressão / PDF →</Link></div>}
+      {selectedBatch && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-900/30 bg-red-950/15 p-3"><p className="text-sm text-slate-300"><strong className="text-white">Série {selectedBatch.series_code}</strong> · {selectedBatch.physical_format} em 1 · {selectedBatch.generated_cards} cartelas</p><div className="flex flex-wrap items-center gap-3"><button type="button" onClick={()=>downloadBatchGuide(selectedBatch)} className="text-sm font-black text-sky-400 hover:text-sky-300">Baixar gabarito PNG</button><Link to={`/eventos/${eventId}/cartelas/lote/${selectedBatch.id}/imprimir`} className="text-sm font-black text-red-400">Configurar impressão / PDF →</Link></div></div>}
     </Card>
 
     {loading ? <Card>Carregando…</Card> : cards.length === 0 ? <Card>Nenhuma cartela encontrada.</Card> : <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{cards.map((card) => <Link key={card.id} to={`/eventos/${eventId}/cartelas/${card.id}`} className="rounded-2xl border border-slate-700 bg-slate-900/65 p-4 shadow-sm transition hover:border-red-700"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="break-words text-lg font-black text-white">{card.code}</p><p className="text-xs text-slate-500">{card.physical_format} em 1 · Série {card.batch.series_code}</p></div><StatusBadge tone={card.status === 'available' ? 'success' : card.status === 'sold' ? 'info' : card.status === 'void' ? 'danger' : 'neutral'}>{labels[card.status]}</StatusBadge></div></Link>)}</div>}

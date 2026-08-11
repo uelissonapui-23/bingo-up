@@ -14,7 +14,8 @@ describe('homologação acionável e auditoria final',()=>{
   it('leva pendências operacionais para o evento correto',()=>{
     expect(ui).toContain('Abrir conferência')
     expect(ui).toContain('Abrir sorteio')
-    expect(ui).toContain('/sorteio`')
+    expect(ui).toContain('/master/conferencia/${row.id}')
+    expect(ui).toContain('/master/sorteio/${row.session_id}')
   })
   it('não oferece exclusão ou resolução automática pelo Master',()=>{
     expect(sql.toLowerCase()).not.toContain('delete from public.winner_candidates')
