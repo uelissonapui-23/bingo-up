@@ -17,12 +17,21 @@ export type MasterMembership = { workspace_id: string; workspace_name: string; r
 export type MasterUserRow = { user_id: string; email: string | null; display_name: string | null; platform_access_status: UserAccessStatus; block_reason: string | null; last_sign_in_at: string | null; created_at: string; memberships: MasterMembership[] }
 export type MasterAuditRow = { id: number; actor_email: string | null; action: string; target_workspace_id: string | null; workspace_name: string | null; metadata: Record<string, unknown>; created_at: string }
 
+export type HomologationCheck = { id: string; level: 'ok' | 'info' | 'warning' | 'critical'; title: string; detail: string }
+export type HomologationStatus = {
+  status: 'ready' | 'attention' | 'critical'
+  checked_at: string
+  metrics: { masters: number; workspaces: number; events: number; sold_cards: number; pending_access_users: number; blocked_users: number; open_support_threads: number; pending_winner_candidates: number; open_draw_sessions: number; workspaces_without_license: number }
+  checks: HomologationCheck[]
+}
+
 export async function isPlatformOwner() { const { data, error } = await supabase.rpc('is_platform_owner'); if (error) throw error; return Boolean(data) }
 export async function getMasterDashboard(): Promise<MasterDashboard> { const { data, error } = await supabase.rpc('get_master_dashboard'); if (error) throw error; return data as MasterDashboard }
 export async function listMasterWorkspaces(): Promise<MasterWorkspaceRow[]> { const { data, error } = await supabase.rpc('list_master_workspaces'); if (error) throw error; return (data ?? []) as MasterWorkspaceRow[] }
 export async function listMasterPlans(): Promise<CommercialPlan[]> { const { data, error } = await supabase.rpc('list_master_plans'); if (error) throw error; return (data ?? []) as CommercialPlan[] }
 export async function listMasterUsers(): Promise<MasterUserRow[]> { const { data, error } = await supabase.rpc('list_master_users'); if (error) throw error; return (data ?? []) as MasterUserRow[] }
 export async function listMasterAudit(limit = 80): Promise<MasterAuditRow[]> { const { data, error } = await supabase.rpc('list_master_audit', { limit_rows: limit }); if (error) throw error; return (data ?? []) as MasterAuditRow[] }
+export async function getMasterHomologationStatus(): Promise<HomologationStatus> { const { data, error } = await supabase.rpc('master_get_homologation_status'); if (error) throw error; return data as HomologationStatus }
 
 export async function updateWorkspaceAccess(input: { workspaceId: string; accessStatus: AccessStatus; planCode: string | null; eventLimit: number | null; validUntil: string | null; notes: string | null }) {
   const { error } = await supabase.rpc('master_update_workspace_access_v2', { target_workspace_id: input.workspaceId, target_access_status: input.accessStatus, target_plan_code: input.planCode, target_event_limit: input.eventLimit, target_valid_until: input.validUntil, target_notes: input.notes }); if (error) throw error
