@@ -5,7 +5,7 @@
 insert into public.platform_members(user_id, role)
 select id, 'platform_owner'::public.platform_role
 from auth.users
-where lower(email)=lower('SEU_EMAIL_MASTER_AQUI')
+where lower(email)=lower('evoriagerenciamentodeeventos@gmail.com')
 on conflict(user_id) do update set role='platform_owner'::public.platform_role;
 
 -- Verificação opcional:

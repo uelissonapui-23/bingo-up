@@ -26,4 +26,4 @@ Esta fase cria uma camada de administração global separada dos workspaces.
 - Assets ficam no bucket público `platform-branding`; apenas platform_owner pode escrever.
 
 ## Ativação da conta Master
-`MASTER_ACCOUNT_SETUP.sql` é intencionalmente separado da migration. Isso evita promover automaticamente uma conta errada durante deploy. Substitua `SEU_EMAIL_MASTER_AQUI` pelo e-mail exato e execute uma única vez no SQL Editor do Supabase.
+`MASTER_ACCOUNT_SETUP.sql` é intencionalmente separado da migration. Isso evita promover automaticamente uma conta errada durante deploy. Substitua `evoriagerenciamentodeeventos@gmail.com` pelo e-mail exato e execute uma única vez no SQL Editor do Supabase.
