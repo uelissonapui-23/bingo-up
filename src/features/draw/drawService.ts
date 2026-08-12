@@ -33,7 +33,7 @@ export async function listDrawNumbers(sessionId:string):Promise<DrawNumber[]>{
 
 export async function createDrawSession(eventId:string,ruleSetId:string,winPatternCode:string,name?:string,options?:{continueNumbers?:boolean;drawMethod?:'automatic'|'manual';excludePreviouslyAwardedGames?:boolean}){
   const {data,error}=await supabase.rpc('create_draw_session',{target_event_id:eventId,target_rule_set_id:ruleSetId,target_win_pattern_code:winPatternCode,target_name:name||null,target_continue_numbers:options?.continueNumbers??false,target_draw_method:options?.drawMethod??'automatic',target_exclude_previously_awarded_games:options?.excludePreviouslyAwardedGames??false})
-  if(error) throw error
+  if(error) throw new Error(error.message||'Não foi possível iniciar o sorteio.')
   return data as string
 }
 
@@ -74,7 +74,7 @@ export function subscribeToEventDraw(eventId:string,onChange:()=>void){
 export type DrawProgressRow={session_id:string;physical_card_id:string;card_game_id:string;position:number;matched_count:number;missing_count:number;is_winner:boolean;completed_at:string|null;card_code:string|null}
 export type WinnerCandidateView={id:string;physical_card_id:string;card_game_id:string;status:string;detected_at:string;physical_cards:{code:string}|null;draw_session_games:{position:number}|null}
 
-export async function refreshDrawProgress(sessionId:string){const {data,error}=await supabase.rpc('refresh_draw_progress',{target_session_id:sessionId});if(error)throw error;return data as {one_away:number;two_away:number;winners:number;evaluated_games:number}}
+export async function refreshDrawProgress(sessionId:string){const {data,error}=await supabase.rpc('refresh_draw_progress',{target_session_id:sessionId});if(error)throw new Error(error.message||'Não foi possível preparar a conferência do sorteio.');return data as {one_away:number;two_away:number;winners:number;evaluated_games:number}}
 export async function listDrawProgress(sessionId:string):Promise<DrawProgressRow[]>{
   const {data,error}=await supabase.from('game_progress').select('session_id,physical_card_id,card_game_id,position,matched_count,missing_count,is_winner,completed_at').eq('session_id',sessionId).order('missing_count').order('position')
   if(error)throw error
