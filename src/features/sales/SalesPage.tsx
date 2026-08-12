@@ -14,8 +14,8 @@ import type { SaleStatus } from '@/types/database'
 const saleStatusLabel:Record<SaleStatus,string>={reserved:'Reservada',completed:'Concluída',canceled:'Cancelada'}
 const blockedSaleStatuses=new Set(['sales_paused','drawing','paused','finished','canceled','archived'])
 
-export function SalesPage(){
-  const {eventId:paramEventId}=useParams();const [searchParams,setSearchParams]=useSearchParams();const {currentWorkspace}=useWorkspace()
+export function SalesPage({workspaceIdOverride,eventIdOverride,standalone=false}:{workspaceIdOverride?:string;eventIdOverride?:string;standalone?:boolean}={}){
+  const routeParams=useParams();const paramEventId=eventIdOverride??routeParams.eventId;const [searchParams,setSearchParams]=useSearchParams();const {currentWorkspace}=useWorkspace();const workspaceId=workspaceIdOverride??currentWorkspace?.id
   const [events,setEvents]=useState<SalesEventOption[]>([]);const [eventId,setEventId]=useState(paramEventId||searchParams.get('evento')||'')
   const [batches,setBatches]=useState<SalesBatchOption[]>([]);const [batchId,setBatchId]=useState('')
   const [cards,setCards]=useState<SaleableCard[]>([]);const [selected,setSelected]=useState<string[]>([]);const [sales,setSales]=useState<SaleView[]>([]);const [summary,setSummary]=useState<SalesSummary|null>(null)
@@ -24,8 +24,8 @@ export function SalesPage(){
   const currentEvent=events.find(e=>e.id===eventId)
   const canOperate=Boolean(currentEvent&&!blockedSaleStatuses.has(currentEvent.status))
 
-  const loadEvents=useCallback(async()=>{if(!currentWorkspace)return;const data=await listSalesEvents(currentWorkspace.id);setEvents(data);setEventId(v=>v||data[0]?.id||'')},[currentWorkspace])
-  const loadEventData=useCallback(async()=>{if(!currentWorkspace||!eventId)return;setLoading(true);setError(null);try{const [bs,cs,ss,sum]=await Promise.all([listSalesBatches(currentWorkspace.id,eventId),listSaleableCards(currentWorkspace.id,eventId,{batchId:batchId||undefined,search,fromSequence:fromSequence?Number(fromSequence):undefined,toSequence:toSequence?Number(toSequence):undefined}),listEventSales(currentWorkspace.id,eventId,statusFilter||undefined),getSalesSummary(currentWorkspace.id,eventId)]);setBatches(bs);setCards(cs);setSelected(current=>current.filter(id=>cs.some(card=>card.id===id)));setSales(ss);setSummary(sum)}catch(e:any){setError(e?.message||'Não foi possível carregar as vendas.')}finally{setLoading(false)}},[currentWorkspace,eventId,batchId,search,fromSequence,toSequence,statusFilter])
+  const loadEvents=useCallback(async()=>{if(!workspaceId)return;const data=await listSalesEvents(workspaceId);setEvents(data);setEventId(v=>v||data[0]?.id||'')},[workspaceId])
+  const loadEventData=useCallback(async()=>{if(!workspaceId||!eventId)return;setLoading(true);setError(null);try{const [bs,cs,ss,sum]=await Promise.all([listSalesBatches(workspaceId,eventId),listSaleableCards(workspaceId,eventId,{batchId:batchId||undefined,search,fromSequence:fromSequence?Number(fromSequence):undefined,toSequence:toSequence?Number(toSequence):undefined}),listEventSales(workspaceId,eventId,statusFilter||undefined),getSalesSummary(workspaceId,eventId)]);setBatches(bs);setCards(cs);setSelected(current=>current.filter(id=>cs.some(card=>card.id===id)));setSales(ss);setSummary(sum)}catch(e:any){setError(e?.message||'Não foi possível carregar as vendas.')}finally{setLoading(false)}},[workspaceId,eventId,batchId,search,fromSequence,toSequence,statusFilter])
   useEffect(()=>{void loadEvents().catch(()=>setError('Não foi possível carregar os eventos.'))},[loadEvents])
   useEffect(()=>{if(eventId){if(!paramEventId)setSearchParams({evento:eventId},{replace:true});void loadEventData()}},[eventId,paramEventId,setSearchParams,loadEventData])
   useEffect(()=>{if(currentEvent)setPrice(String(currentEvent.settings.default_card_price).replace('.',','))},[currentEvent])
@@ -39,9 +39,9 @@ export function SalesPage(){
   async function finalize(saleId:string){setSaving(true);setError(null);try{await completeReservedSale(saleId);setNotice('Reserva convertida em venda.');await loadEventData()}catch(e:any){setError(e?.message||'Não foi possível concluir a reserva.')}finally{setSaving(false)}}
   async function cancel(saleId:string){const reason=window.prompt('Motivo do cancelamento (opcional):')??undefined;if(reason===undefined)return;setSaving(true);setError(null);try{await cancelSale(saleId,reason);setNotice('Operação cancelada e cartelas liberadas quando permitido.');await loadEventData()}catch(e:any){setError(e?.message||'Não foi possível cancelar.')}finally{setSaving(false)}}
 
-  if(!currentWorkspace)return null
+  if(!workspaceId)return null
   return <div className="space-y-6">
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-semibold text-red-400">Operação</p><h1 className="mt-1 text-3xl font-black tracking-tight text-white">Vendas</h1><p className="mt-2 text-sm text-slate-400">Selecione as cartelas, registre a venda e acompanhe o histórico do evento.</p></div>{paramEventId&&<Link to={`/eventos/${paramEventId}`}><Button variant="secondary">Voltar ao evento</Button></Link>}</div>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-semibold text-red-400">Operação</p><h1 className="mt-1 text-3xl font-black tracking-tight text-white">Vendas</h1><p className="mt-2 text-sm text-slate-400">Selecione as cartelas, registre a venda e acompanhe o histórico do evento.</p></div>{paramEventId&&<Link to={standalone?'/venda':`/eventos/${paramEventId}`}><Button variant="secondary">{standalone?'Voltar à central':'Voltar ao evento'}</Button></Link>}</div>
     {notice&&<div className="rounded-2xl border border-emerald-800/60 bg-emerald-950/30 p-4 text-sm font-medium text-emerald-300">{notice}</div>}{error&&<div className="rounded-2xl border border-red-900/60 bg-red-950/30 p-4 text-sm font-medium text-red-300">{error}</div>}
     <Card><div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]"><label className="text-sm font-semibold text-slate-200">Evento<Select className="mt-1" value={eventId} disabled={Boolean(paramEventId)} onChange={e=>{setEventId(e.target.value);setSelected([]);setBatchId('');setPrice('')}}><option value="">Selecione…</option>{events.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</Select></label>{currentEvent&&<div className="self-end text-sm text-slate-400">Preço padrão: <strong className="text-white">{money(currentEvent.settings.default_card_price,currentEvent.settings.currency)}</strong></div>}</div></Card>
     {!eventId?<Card>Crie ou selecione um evento para começar.</Card>:<>
