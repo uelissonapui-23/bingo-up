@@ -21,11 +21,14 @@ export function RegisterPage() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { display_name: name.trim() } }
+      options: {
+        data: { display_name: name.trim() },
+        emailRedirectTo: `${window.location.origin}/confirmar-email`
+      }
     })
     if (error) setError(error.message.includes('registered') ? 'Este e-mail já possui uma conta.' : 'Não foi possível criar a conta.')
     else if (data.session) setMessage('Conta criada. Seu acesso ficará aguardando liberação da equipe responsável.')
-    else setMessage('Conta criada. Confirme o e-mail; depois seu acesso ficará aguardando liberação.')
+    else setMessage('Conta criada. Abra o e-mail de confirmação. Depois de confirmar, você voltará para a tela de login.')
     setBusy(false)
   }
 

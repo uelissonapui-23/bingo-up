@@ -9,6 +9,7 @@ import {LoginPage} from '@/features/auth/LoginPage'
 import {RegisterPage} from '@/features/auth/RegisterPage'
 import {ForgotPasswordPage} from '@/features/auth/ForgotPasswordPage'
 import {ResetPasswordPage} from '@/features/auth/ResetPasswordPage'
+import {ConfirmEmailPage} from '@/features/auth/ConfirmEmailPage'
 import {WorkspaceOnboardingPage} from '@/features/workspace/WorkspaceOnboardingPage'
 
 const RoleHomePage=lazy(()=>import('@/features/dashboard/RoleHomePage').then(m=>({default:m.RoleHomePage})))
@@ -45,7 +46,7 @@ function RouteLoading(){return <div className="p-6 text-sm font-semibold text-sl
 
 export function AppRouter(){
   return <Suspense fallback={<RouteLoading/>}><Routes>
-    <Route path="/entrar" element={<LoginPage/>}/><Route path="/criar-conta" element={<RegisterPage/>}/><Route path="/esqueci-senha" element={<ForgotPasswordPage/>}/><Route path="/redefinir-senha" element={<ResetPasswordPage/>}/>
+    <Route path="/entrar" element={<LoginPage/>}/><Route path="/criar-conta" element={<RegisterPage/>}/><Route path="/confirmar-email" element={<ConfirmEmailPage/>}/><Route path="/esqueci-senha" element={<ForgotPasswordPage/>}/><Route path="/redefinir-senha" element={<ResetPasswordPage/>}/>
     <Route path="/painel-publico/:publicSessionId" element={<PublicPanelPage/>}/><Route path="/c/:token" element={<PublicCardPlaceholderPage/>}/>
     <Route element={<RequireAuth/>}><Route element={<RequirePlatformOwner/>}><Route path="/master" element={<MasterPage/>}/><Route path="/master/conferencia/:candidateId" element={<MasterConferencePage/>}/><Route path="/master/sorteio/:sessionId" element={<MasterDrawSessionPage/>}/></Route><Route path="/convites/vendedor/:token" element={<SellerInvitePage/>}/><Route path="/convites/operador/:token" element={<OperatorInvitePage/>}/><Route element={<RequirePlatformAccess/>}><Route path="/configurar-organizador" element={<div className="bingoup-app min-h-dvh p-4"><WorkspaceOnboardingPage/></div>}/><Route element={<RequireWorkspace/>}><Route element={<AppShell/>}>
       <Route index element={<RoleHomePage/>}/>
