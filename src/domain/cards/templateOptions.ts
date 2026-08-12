@@ -1,13 +1,14 @@
 export type ArtworkQuality='light'|'standard'|'high'
 export type ArtworkFit='cover'|'contain'
 export type CardArtworkOptions={path:string;zoom:number;offsetX:number;offsetY:number;quality:ArtworkQuality;fit:ArtworkFit}
-export type WildcardKind='star'|'circle'|'heart'|'cross'|'fire'|'soccer'|'custom'|'none'
+export type WildcardKind='star'|'circle'|'heart'|'cross'|'fire'|'soccer'|'diamond'|'square'|'triangle'|'sun'|'moon'|'clover'|'flower'|'bolt'|'check'|'xmark'|'crown'|'target'|'ring'|'sparkle'|'custom'|'none'
 export type CardWildcardOptions={kind:WildcardKind;path?:string;scale:number}
 export type CardGameFont='helvetica'|'times'|'courier'
 export type CardGameStyleOptions={
   numberColor:string
   gridColor:string
   cellBackground:string
+  cellBackgroundOpacity:number
   headerBackground:string
   headerTextColor:string
   numberFont:CardGameFont
@@ -27,7 +28,7 @@ export type CardTemplateOptions={version:1;artwork?:CardArtworkOptions;wildcard?
 
 export const DEFAULT_WILDCARD:CardWildcardOptions={kind:'star',scale:1}
 export const DEFAULT_GAME_STYLE:CardGameStyleOptions={
-  numberColor:'#0f172a',gridColor:'#64748b',cellBackground:'#ffffff',headerBackground:'#111827',headerTextColor:'#ffffff',
+  numberColor:'#0f172a',gridColor:'#64748b',cellBackground:'#ffffff',cellBackgroundOpacity:1,headerBackground:'#111827',headerTextColor:'#ffffff',
   numberFont:'helvetica',headerFont:'helvetica',numberBold:true,headerBold:true,numberScale:1,headerScale:1,
   cornerRadius:0,widthScale:1,heightScale:1,cellGap:0,gridLineWidth:1,headerHeight:13,
 }
@@ -54,6 +55,7 @@ export function parseCardTemplateOptions(value:Record<string,unknown>|null|undef
     numberColor:color(styleRaw.numberColor,DEFAULT_GAME_STYLE.numberColor),
     gridColor:color(styleRaw.gridColor,DEFAULT_GAME_STYLE.gridColor),
     cellBackground:color(styleRaw.cellBackground,DEFAULT_GAME_STYLE.cellBackground),
+    cellBackgroundOpacity:numberInRange(styleRaw.cellBackgroundOpacity,0,1,DEFAULT_GAME_STYLE.cellBackgroundOpacity),
     headerBackground:color(styleRaw.headerBackground,DEFAULT_GAME_STYLE.headerBackground),
     headerTextColor:color(styleRaw.headerTextColor,DEFAULT_GAME_STYLE.headerTextColor),
     numberFont:isGameFont(styleRaw.numberFont)?styleRaw.numberFont:DEFAULT_GAME_STYLE.numberFont,
@@ -74,7 +76,7 @@ export function parseCardTemplateOptions(value:Record<string,unknown>|null|undef
 function isRecord(value:unknown):value is Record<string,unknown>{return typeof value==='object'&&value!==null&&!Array.isArray(value)}
 function isQuality(value:unknown):value is ArtworkQuality{return value==='light'||value==='standard'||value==='high'}
 function isFit(value:unknown):value is ArtworkFit{return value==='cover'||value==='contain'}
-function isWildcardKind(value:unknown):value is WildcardKind{return value==='star'||value==='circle'||value==='heart'||value==='cross'||value==='fire'||value==='soccer'||value==='custom'||value==='none'}
+function isWildcardKind(value:unknown):value is WildcardKind{return ['star','circle','heart','cross','fire','soccer','diamond','square','triangle','sun','moon','clover','flower','bolt','check','xmark','crown','target','ring','sparkle','custom','none'].includes(String(value))}
 function isGameFont(value:unknown):value is CardGameFont{return value==='helvetica'||value==='times'||value==='courier'}
 function color(value:unknown,fallback:string){return typeof value==='string'&&/^#[0-9a-f]{6}$/i.test(value)?value:fallback}
 function numberInRange(value:unknown,min:number,max:number,fallback:number){const n=typeof value==='number'?value:Number(value);return Number.isFinite(n)?Math.min(max,Math.max(min,n)):fallback}

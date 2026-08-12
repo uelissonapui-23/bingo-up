@@ -1,7 +1,7 @@
 import { supabase } from '@/services/supabase/client'
 import type { BingoRuleSet, CardTemplate, BingoDistributionMode, CardBannerPosition, CardOrientation, CardPageSize } from '@/types/database'
 import type { ColumnDefinition } from '@/domain/cards/capacity'
-import { DEFAULT_GAME_STYLE, parseCardTemplateOptions, type CardArtworkOptions, type CardGameStyleOptions, type CardTemplateOptions } from '@/domain/cards/templateOptions'
+import { DEFAULT_GAME_STYLE, DEFAULT_WILDCARD, parseCardTemplateOptions, type CardArtworkOptions, type CardGameStyleOptions, type CardTemplateOptions, type CardWildcardOptions } from '@/domain/cards/templateOptions'
 
 export type CreateRuleInput = {
   name: string; code: string; totalBalls: number; gridRows: number; gridColumns: number; numbersPerGame: number
@@ -56,6 +56,42 @@ function readEventGameStyle(settings:Record<string,unknown>|null|undefined):Card
   const raw=settings?.card_game_style
   if(!raw||typeof raw!=='object'||Array.isArray(raw))return DEFAULT_GAME_STYLE
   return parseCardTemplateOptions({gameStyle:raw}).gameStyle??DEFAULT_GAME_STYLE
+}
+
+
+function readEventWildcard(settings:Record<string,unknown>|null|undefined):CardWildcardOptions{
+  const raw=settings?.card_wildcard
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return DEFAULT_WILDCARD
+  return parseCardTemplateOptions({wildcard:raw}).wildcard??DEFAULT_WILDCARD
+}
+
+export async function getEventCardWildcard(workspaceId:string,eventId:string):Promise<CardWildcardOptions>{
+  const {data,error}=await supabase.from('event_settings').select('settings').eq('workspace_id',workspaceId).eq('event_id',eventId).single()
+  if(error)throw error
+  return readEventWildcard((data?.settings??{}) as Record<string,unknown>)
+}
+
+export async function saveEventCardWildcard(workspaceId:string,eventId:string,input:{wildcard:CardWildcardOptions;wildcardFile?:Blob}):Promise<CardWildcardOptions>{
+  const {data,error}=await supabase.from('event_settings').select('settings').eq('workspace_id',workspaceId).eq('event_id',eventId).single()
+  if(error)throw error
+  const current=(data?.settings??{}) as Record<string,unknown>
+  const previous=readEventWildcard(current)
+  let uploadedPath:string|null=null
+  try{
+    if(input.wildcard.kind==='custom'&&input.wildcardFile){
+      uploadedPath=`${workspaceId}/${eventId}/wildcards/${crypto.randomUUID()}.webp`
+      await uploadAsset(uploadedPath,input.wildcardFile)
+    }
+    const normalized=parseCardTemplateOptions({wildcard:{...input.wildcard,path:input.wildcard.kind==='custom'?(uploadedPath??input.wildcard.path??previous.path):undefined}}).wildcard??DEFAULT_WILDCARD
+    if(normalized.kind==='custom'&&!normalized.path)throw new Error('Escolha um ícone PNG para o coringa personalizado.')
+    const {data:updated,error:updateError}=await supabase.from('event_settings').update({settings:{...current,card_wildcard:normalized}}).eq('workspace_id',workspaceId).eq('event_id',eventId).select('settings').single()
+    if(updateError)throw updateError
+    if(previous.kind==='custom'&&previous.path&&previous.path!==normalized.path)await supabase.storage.from('card-artworks').remove([previous.path]).catch(()=>{})
+    return readEventWildcard((updated?.settings??{}) as Record<string,unknown>)
+  }catch(error){
+    if(uploadedPath)await supabase.storage.from('card-artworks').remove([uploadedPath]).catch(()=>{})
+    throw error
+  }
 }
 
 export async function getEventCardGameStyle(workspaceId:string,eventId:string):Promise<CardGameStyleOptions>{

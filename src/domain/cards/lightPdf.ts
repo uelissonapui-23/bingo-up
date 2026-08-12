@@ -17,6 +17,7 @@ type PdfOptions={
 }
 
 type PreparedJpeg={bytes:Uint8Array;width:number;height:number}
+type PreparedRgba={rgb:Uint8Array;alpha:Uint8Array;width:number;height:number}
 type PdfImageRef={name:string;objectId:number;width:number;height:number}
 
 const PT_PER_MM=72/25.4
@@ -36,7 +37,7 @@ export async function downloadLightweightCardsPdf(options:PdfOptions){
   const gameStyle=templateOptions.gameStyle??DEFAULT_GAME_STYLE
   const wildcardUrl=wildcard.kind==='custom'?getCardAssetUrl(wildcard.path):null
   const background=backgroundUrl?await prepareArtworkJpeg(backgroundUrl,art?.quality??'standard',art?.fit??'cover',art?.zoom??1,art?.offsetX??0,art?.offsetY??0):null
-  const customWildcard=wildcardUrl?await prepareSquareJpeg(wildcardUrl):null
+  const customWildcard=wildcardUrl?await prepareSquareRgba(wildcardUrl):null
   const bytes=buildPdf(options.cards,{paperWidthMm:spec.width,paperHeightMm:spec.height,grid,perSheet:options.perSheet,marginMm:margin,gapMm:gap,background,customWildcard,wildcard,gameStyle,cropMarks:options.cropMarks??true})
   const blob=new Blob([bytes],{type:'application/pdf'})
   const url=URL.createObjectURL(blob)
@@ -59,20 +60,23 @@ async function prepareArtworkJpeg(url:string,quality:'light'|'standard'|'high',f
   return canvasJpeg(canvas,target.q)
 }
 
-async function prepareSquareJpeg(url:string):Promise<PreparedJpeg>{
+async function prepareSquareRgba(url:string):Promise<PreparedRgba>{
   const bitmap=await fetchBitmap(url),size=320
   const canvas=document.createElement('canvas');canvas.width=size;canvas.height=size
-  const ctx=canvas.getContext('2d',{alpha:false});if(!ctx){bitmap.close();throw new Error('Não foi possível preparar o coringa para o PDF.')}
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size)
+  const ctx=canvas.getContext('2d',{alpha:true});if(!ctx){bitmap.close();throw new Error('Não foi possível preparar o coringa para o PDF.')}
+  ctx.clearRect(0,0,size,size)
   const scale=Math.min(size/bitmap.width,size/bitmap.height)*.9,w=bitmap.width*scale,h=bitmap.height*scale
   ctx.drawImage(bitmap,(size-w)/2,(size-h)/2,w,h);bitmap.close()
-  return canvasJpeg(canvas,.8)
+  const pixels=ctx.getImageData(0,0,size,size).data
+  const rgbBytes=new Uint8Array(size*size*3),alphaBytes=new Uint8Array(size*size)
+  for(let i=0,j=0,k=0;i<pixels.length;i+=4){rgbBytes[j++]=pixels[i]??0;rgbBytes[j++]=pixels[i+1]??0;rgbBytes[j++]=pixels[i+2]??0;alphaBytes[k++]=pixels[i+3]??0}
+  return {rgb:rgbBytes,alpha:alphaBytes,width:size,height:size}
 }
 
 async function fetchBitmap(url:string){const response=await fetch(url,{cache:'force-cache'});if(!response.ok)throw new Error('Não foi possível carregar a arte da cartela.');return createImageBitmap(await response.blob())}
 async function canvasJpeg(canvas:HTMLCanvasElement,quality:number):Promise<PreparedJpeg>{const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(v=>v?resolve(v):reject(new Error('Falha ao compactar imagem.')),'image/jpeg',quality));return{bytes:new Uint8Array(await blob.arrayBuffer()),width:canvas.width,height:canvas.height}}
 
-function buildPdf(cards:PhysicalCardView[],ctx:{paperWidthMm:number;paperHeightMm:number;grid:ReturnType<typeof bestGrid>;perSheet:number;marginMm:number;gapMm:number;background:PreparedJpeg|null;customWildcard:PreparedJpeg|null;wildcard:CardWildcardOptions;gameStyle:CardGameStyleOptions;cropMarks:boolean}){
+function buildPdf(cards:PhysicalCardView[],ctx:{paperWidthMm:number;paperHeightMm:number;grid:ReturnType<typeof bestGrid>;perSheet:number;marginMm:number;gapMm:number;background:PreparedJpeg|null;customWildcard:PreparedRgba|null;wildcard:CardWildcardOptions;gameStyle:CardGameStyleOptions;cropMarks:boolean}){
   const objects:Array<Uint8Array|null>=[null]
   const reserve=()=>{objects.push(null);return objects.length-1}
   const setText=(id:number,text:string)=>{objects[id]=enc.encode(text)}
@@ -84,11 +88,14 @@ function buildPdf(cards:PhysicalCardView[],ctx:{paperWidthMm:number;paperHeightM
   setText(timesBoldId,'<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold >>')
   setText(courierId,'<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>')
   setText(courierBoldId,'<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>')
+  const cellAlpha=Math.max(0,Math.min(1,ctx.gameStyle.cellBackgroundOpacity??1))
+  const cellAlphaId=cellAlpha>0&&cellAlpha<1?reserve():null
+  if(cellAlphaId)setText(cellAlphaId,`<< /Type /ExtGState /ca ${cellAlpha.toFixed(3)} /CA ${cellAlpha.toFixed(3)} >>`)
   let bgRef:PdfImageRef|null=null,wcRef:PdfImageRef|null=null
   if(ctx.background){const id=reserve();setBinaryStream(id,`/Type /XObject /Subtype /Image /Width ${ctx.background.width} /Height ${ctx.background.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode`,ctx.background.bytes);bgRef={name:'Bg',objectId:id,width:ctx.background.width,height:ctx.background.height}}
-  if(ctx.customWildcard){const id=reserve();setBinaryStream(id,`/Type /XObject /Subtype /Image /Width ${ctx.customWildcard.width} /Height ${ctx.customWildcard.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode`,ctx.customWildcard.bytes);wcRef={name:'Wc',objectId:id,width:ctx.customWildcard.width,height:ctx.customWildcard.height}}
+  if(ctx.customWildcard){const maskId=reserve(),id=reserve();setBinaryStream(maskId,`/Type /XObject /Subtype /Image /Width ${ctx.customWildcard.width} /Height ${ctx.customWildcard.height} /ColorSpace /DeviceGray /BitsPerComponent 8`,ctx.customWildcard.alpha);setBinaryStream(id,`/Type /XObject /Subtype /Image /Width ${ctx.customWildcard.width} /Height ${ctx.customWildcard.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask ${maskId} 0 R`,ctx.customWildcard.rgb);wcRef={name:'Wc',objectId:id,width:ctx.customWildcard.width,height:ctx.customWildcard.height}}
   const pageIds:number[]=[]
-  for(let start=0;start<cards.length;start+=ctx.perSheet){const pageCards=cards.slice(start,start+ctx.perSheet),contentId=reserve(),pageId=reserve();pageIds.push(pageId);const content=pageContent(pageCards,ctx,bgRef,wcRef);setBinaryStream(contentId,'',enc.encode(content));const xobjects=[bgRef,wcRef].filter((v):v is PdfImageRef=>Boolean(v)).map(v=>`/${v.name} ${v.objectId} 0 R`).join(' ');setText(pageId,`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${mm(ctx.paperWidthMm)} ${mm(ctx.paperHeightMm)}] /Resources << /Font << /F1 ${fontId} 0 R /F2 ${fontBoldId} 0 R /F3 ${timesId} 0 R /F4 ${timesBoldId} 0 R /F5 ${courierId} 0 R /F6 ${courierBoldId} 0 R >>${xobjects?` /XObject << ${xobjects} >>`:''} >> /Contents ${contentId} 0 R >>`)}
+  for(let start=0;start<cards.length;start+=ctx.perSheet){const pageCards=cards.slice(start,start+ctx.perSheet),contentId=reserve(),pageId=reserve();pageIds.push(pageId);const content=pageContent(pageCards,ctx,bgRef,wcRef);setBinaryStream(contentId,'',enc.encode(content));const xobjects=[bgRef,wcRef].filter((v):v is PdfImageRef=>Boolean(v)).map(v=>`/${v.name} ${v.objectId} 0 R`).join(' ');setText(pageId,`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${mm(ctx.paperWidthMm)} ${mm(ctx.paperHeightMm)}] /Resources << /Font << /F1 ${fontId} 0 R /F2 ${fontBoldId} 0 R /F3 ${timesId} 0 R /F4 ${timesBoldId} 0 R /F5 ${courierId} 0 R /F6 ${courierBoldId} 0 R >>${xobjects?` /XObject << ${xobjects} >>`:''}${cellAlphaId?` /ExtGState << /GSCell ${cellAlphaId} 0 R >>`:''} >> /Contents ${contentId} 0 R >>`)}
   setText(pagesId,`<< /Type /Pages /Kids [${pageIds.map(id=>`${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`)
   setText(catalogId,`<< /Type /Catalog /Pages ${pagesId} 0 R >>`)
   return assemblePdf(objects,catalogId)
@@ -131,16 +138,20 @@ function drawGame(out:string[],cells:Array<number|null>,cols:number,labels:strin
   const gap=Math.min(cellW,cellH)*Math.min(.18,style.cellGap*.018)
   out.push('q')
   roundedRect(out,x,y,w,h,radius,'W n')
-  setFill(out,style.gridColor);roundedRect(out,x,y,w,h,radius,'f')
   const line=Math.max(.18,style.gridLineWidth*.45)
-  const headRgb=rgb(style.headerBackground),cellRgb=rgb(style.cellBackground),gridRgb=rgb(style.gridColor)
+  const headRgb=rgb(style.headerBackground),cellRgb=rgb(style.cellBackground),gridRgb=rgb(style.gridColor),cellAlpha=Math.max(0,Math.min(1,style.cellBackgroundOpacity??1))
   for(let c=0;c<cols;c++){
     const rx=x+c*cellW+gap/2,ry=y+h-headerH+gap/2,rw=cellW-gap,rh=headerH-gap
     out.push(`${headRgb} rg`,`${gridRgb} RG`,`${line} w`,`${rx} ${ry} ${rw} ${rh} re B`)
   }
   for(let i=0;i<cells.length;i++){
     const row=Math.floor(i/cols),col=i%cols,rx=x+col*cellW+gap/2,ry=y+bodyH-(row+1)*cellH+gap/2,rw=cellW-gap,rh=cellH-gap
-    out.push(`${cellRgb} rg`,`${gridRgb} RG`,`${line} w`,`${rx} ${ry} ${rw} ${rh} re B`)
+    if(cellAlpha>0){
+      out.push('q')
+      if(cellAlpha<1)out.push('/GSCell gs')
+      out.push(`${cellRgb} rg`,`${rx} ${ry} ${rw} ${rh} re f`,'Q')
+    }
+    out.push(`${gridRgb} RG`,`${line} w`,`${rx} ${ry} ${rw} ${rh} re S`)
   }
   const headerSize=Math.max(4,Math.min(14,headerH*.48))*style.headerScale,numberSize=Math.max(4.5,Math.min(16,cellH*.44))*style.numberScale
   for(let c=0;c<cols;c++){const label=labels[c]??'';centerText(out,label,x+c*cellW+cellW/2,y+h-headerH/2,headerSize,fontRef(style.headerFont,style.headerBold),style.headerTextColor)}
@@ -149,13 +160,50 @@ function drawGame(out:string[],cells:Array<number|null>,cols:number,labels:strin
 }
 
 function roundedRect(out:string[],x:number,y:number,w:number,h:number,r:number,paint:string){if(r<=.01){out.push(`${x} ${y} ${w} ${h} re ${paint}`);return}const k=.5522847498*r;out.push(`${x+r} ${y} m`,`${x+w-r} ${y} l`,`${x+w-r+k} ${y} ${x+w} ${y+r-k} ${x+w} ${y+r} c`,`${x+w} ${y+h-r} l`,`${x+w} ${y+h-r+k} ${x+w-r+k} ${y+h} ${x+w-r} ${y+h} c`,`${x+r} ${y+h} l`,`${x+r-k} ${y+h} ${x} ${y+h-r+k} ${x} ${y+h-r} c`,`${x} ${y+r} l`,`${x} ${y+r-k} ${x+r-k} ${y} ${x+r} ${y} c`,paint)}
-function setFill(out:string[],hex:string){out.push(`${rgb(hex)} rg`)}
 function rgb(hex:string){const v=hex.replace('#','');const n=parseInt(v,16);const r=((n>>16)&255)/255,g=((n>>8)&255)/255,b=(n&255)/255;return `${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)}`}
 function fontRef(font:CardGameStyleOptions['numberFont'],bold:boolean){if(font==='times')return bold?'F4':'F3';if(font==='courier')return bold?'F6':'F5';return bold?'F2':'F1'}
 
-function drawWildcard(out:string[],wildcard:CardWildcardOptions,wc:PdfImageRef|null,cx:number,cy:number,r:number){const scale=Math.max(.35,Math.min(1.8,wildcard.scale??1)),size=r*scale;if(wildcard.kind==='none')return;if(wildcard.kind==='custom'&&wc){out.push('q',`${size*2} 0 0 ${size*2} ${cx-size} ${cy-size} cm /${wc.name} Do`,'Q');return}out.push('0.9 0.08 0.08 rg','0.75 0.05 0.05 RG','0.6 w');if(wildcard.kind==='circle'||wildcard.kind==='soccer'){circle(out,cx,cy,size,true);if(wildcard.kind==='soccer'){circle(out,cx,cy,size*.34,false)}}else if(wildcard.kind==='cross'){const s=size*.85,t=size*.32;out.push(`${cx-t/2} ${cy-s} ${t} ${s*2} re f`,`${cx-s} ${cy-t/2} ${s*2} ${t} re f`)}else if(wildcard.kind==='heart'){heart(out,cx,cy,size)}else if(wildcard.kind==='fire'){flame(out,cx,cy,size)}else star(out,cx,cy,size)}
+function drawWildcard(out:string[],wildcard:CardWildcardOptions,wc:PdfImageRef|null,cx:number,cy:number,r:number){
+  const scale=Math.max(.35,Math.min(1.8,wildcard.scale??1)),size=r*scale
+  if(wildcard.kind==='none')return
+  if(wildcard.kind==='custom'&&wc){out.push('q',`${size*2} 0 0 ${size*2} ${cx-size} ${cy-size} cm /${wc.name} Do`,'Q');return}
+  out.push('0.9 0.08 0.08 rg','0.75 0.05 0.05 RG','0.8 w')
+  switch(wildcard.kind){
+    case 'circle': circle(out,cx,cy,size,true);break
+    case 'soccer': circle(out,cx,cy,size,false);polygon(out,cx,cy,size*.38,5,true);break
+    case 'cross': plus(out,cx,cy,size);break
+    case 'heart': heart(out,cx,cy,size);break
+    case 'fire': flame(out,cx,cy,size);break
+    case 'diamond': polygon(out,cx,cy,size,4,true,Math.PI/4);break
+    case 'square': out.push(`${cx-size*.78} ${cy-size*.78} ${size*1.56} ${size*1.56} re f`);break
+    case 'triangle': polygon(out,cx,cy,size,3,true,Math.PI/2);break
+    case 'sun': sun(out,cx,cy,size);break
+    case 'moon': moon(out,cx,cy,size);break
+    case 'clover': clover(out,cx,cy,size);break
+    case 'flower': flower(out,cx,cy,size);break
+    case 'bolt': bolt(out,cx,cy,size);break
+    case 'check': checkMark(out,cx,cy,size);break
+    case 'xmark': xMark(out,cx,cy,size);break
+    case 'crown': crown(out,cx,cy,size);break
+    case 'target': circle(out,cx,cy,size,false);circle(out,cx,cy,size*.58,false);circle(out,cx,cy,size*.2,true);break
+    case 'ring': circle(out,cx,cy,size,false);circle(out,cx,cy,size*.62,false);break
+    case 'sparkle': sparkle(out,cx,cy,size);break
+    default: star(out,cx,cy,size)
+  }
+}
 function star(out:string[],cx:number,cy:number,r:number){const pts:Array<[number,number]>=[];for(let i=0;i<10;i++){const a=Math.PI/2+i*Math.PI/5,rr=i%2===0?r:r*.42;pts.push([cx+Math.cos(a)*rr,cy+Math.sin(a)*rr])}out.push(`${pts[0]?.[0]??cx} ${pts[0]?.[1]??cy} m`,...pts.slice(1).map(p=>`${p[0]} ${p[1]} l`),'h f')}
 function circle(out:string[],cx:number,cy:number,r:number,fill:boolean){const k=.5522847498*r;out.push(`${cx+r} ${cy} m`,`${cx+r} ${cy+k} ${cx+k} ${cy+r} ${cx} ${cy+r} c`,`${cx-k} ${cy+r} ${cx-r} ${cy+k} ${cx-r} ${cy} c`,`${cx-r} ${cy-k} ${cx-k} ${cy-r} ${cx} ${cy-r} c`,`${cx+k} ${cy-r} ${cx+r} ${cy-k} ${cx+r} ${cy} c`,fill?'f':'S')}
+function polygon(out:string[],cx:number,cy:number,r:number,sides:number,fill:boolean,rotation=0){const pts:Array<[number,number]>=[];for(let i=0;i<sides;i++){const a=rotation+i*Math.PI*2/sides;pts.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r])}out.push(`${pts[0]?.[0]??cx} ${pts[0]?.[1]??cy} m`,...pts.slice(1).map(p=>`${p[0]} ${p[1]} l`),'h',fill?'f':'S')}
+function plus(out:string[],cx:number,cy:number,r:number){const t=r*.42,s=r*.9;out.push(`${cx-t/2} ${cy-s} ${t} ${s*2} re f`,`${cx-s} ${cy-t/2} ${s*2} ${t} re f`)}
+function sun(out:string[],cx:number,cy:number,r:number){circle(out,cx,cy,r*.5,true);for(let i=0;i<8;i++){const a=i*Math.PI/4,x1=cx+Math.cos(a)*r*.62,y1=cy+Math.sin(a)*r*.62,x2=cx+Math.cos(a)*r,y2=cy+Math.sin(a)*r;out.push(`${x1} ${y1} m ${x2} ${y2} l S`)}}
+function moon(out:string[],cx:number,cy:number,r:number){circle(out,cx,cy,r,false);out.push(`${cx+r*.25} ${cy-r*.75} m`,`${cx-r*.15} ${cy-r*.45} ${cx-r*.15} ${cy+r*.45} ${cx+r*.25} ${cy+r*.75} c`,'S')}
+function clover(out:string[],cx:number,cy:number,r:number){const d=r*.42;circle(out,cx-d,cy,d,true);circle(out,cx+d,cy,d,true);circle(out,cx,cy+d,d,true);circle(out,cx,cy-d,d,true)}
+function flower(out:string[],cx:number,cy:number,r:number){for(let i=0;i<6;i++){const a=i*Math.PI/3;circle(out,cx+Math.cos(a)*r*.48,cy+Math.sin(a)*r*.48,r*.34,true)}circle(out,cx,cy,r*.22,true)}
+function bolt(out:string[],cx:number,cy:number,r:number){const pts:Array<[number,number]>=[[cx-r*.15,cy+r],[cx+r*.55,cy+r*.18],[cx+r*.12,cy+r*.18],[cx+r*.35,cy-r],[cx-r*.55,cy-r*.02],[cx-r*.1,cy-r*.02]];out.push(`${pts[0]?.[0]??cx} ${pts[0]?.[1]??cy} m`,...pts.slice(1).map(p=>`${p[0]} ${p[1]} l`),'h f')}
+function checkMark(out:string[],cx:number,cy:number,r:number){out.push(`${Math.max(.8,r*.22)} w`,`${cx-r*.8} ${cy} m ${cx-r*.2} ${cy-r*.55} l ${cx+r*.9} ${cy+r*.65} l S`)}
+function xMark(out:string[],cx:number,cy:number,r:number){out.push(`${Math.max(.8,r*.22)} w`,`${cx-r*.72} ${cy-r*.72} m ${cx+r*.72} ${cy+r*.72} l S`,`${cx-r*.72} ${cy+r*.72} m ${cx+r*.72} ${cy-r*.72} l S`)}
+function crown(out:string[],cx:number,cy:number,r:number){const pts:Array<[number,number]>=[[cx-r,cy-r*.5],[cx-r*.72,cy+r*.7],[cx-r*.2,cy+r*.12],[cx,cy+r],[cx+r*.2,cy+r*.12],[cx+r*.72,cy+r*.7],[cx+r,cy-r*.5]];out.push(`${pts[0]?.[0]??cx} ${pts[0]?.[1]??cy} m`,...pts.slice(1).map(p=>`${p[0]} ${p[1]} l`),'h f')}
+function sparkle(out:string[],cx:number,cy:number,r:number){const pts:Array<[number,number]>=[[cx,cy+r],[cx+r*.22,cy+r*.22],[cx+r,cy],[cx+r*.22,cy-r*.22],[cx,cy-r],[cx-r*.22,cy-r*.22],[cx-r,cy],[cx-r*.22,cy+r*.22]];out.push(`${pts[0]?.[0]??cx} ${pts[0]?.[1]??cy} m`,...pts.slice(1).map(p=>`${p[0]} ${p[1]} l`),'h f')}
 function heart(out:string[],cx:number,cy:number,r:number){out.push(`${cx} ${cy-r*.8} m`,`${cx-r*1.15} ${cy-r*.05} ${cx-r*.95} ${cy+r*.85} ${cx-r*.35} ${cy+r*.75} c`,`${cx} ${cy+r*.72} ${cx} ${cy+r*.28} ${cx} ${cy+r*.12} c`,`${cx} ${cy+r*.28} ${cx} ${cy+r*.72} ${cx+r*.35} ${cy+r*.75} c`,`${cx+r*.95} ${cy+r*.85} ${cx+r*1.15} ${cy-r*.05} ${cx} ${cy-r*.8} c`,'f')}
 function flame(out:string[],cx:number,cy:number,r:number){out.push(`${cx} ${cy-r} m`,`${cx-r*.8} ${cy-r*.25} ${cx-r*.3} ${cy+r*.25} ${cx-r*.1} ${cy+r*.9} c`,`${cx+r*.55} ${cy+r*.35} ${cx+r*.85} ${cy-r*.25} ${cx} ${cy-r} c`,'f')}
 function centerText(out:string[],text:string,cx:number,cy:number,size:number,font:string,color:string){const safe=pdfString(text),estimated=text.length*size*.29;out.push('BT',`${rgb(color)} rg`,`/${font} ${size.toFixed(2)} Tf`,`${cx-estimated} ${cy-size*.34} Td`,`(${safe}) Tj`,'ET')}
