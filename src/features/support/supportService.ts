@@ -40,6 +40,9 @@ export type SupportSettings = {
   blocked_title: string
   blocked_message: string
   whatsapp_number: string | null
+  sales_whatsapp_number: string | null
+  support_phone: string | null
+  sales_whatsapp_message: string | null
   support_enabled: boolean
 }
 
@@ -100,6 +103,9 @@ export async function updateMasterSupportSettings(settings: SupportSettings) {
     target_blocked_title: settings.blocked_title,
     target_blocked_message: settings.blocked_message,
     target_whatsapp_number: settings.whatsapp_number,
+    target_sales_whatsapp_number: settings.sales_whatsapp_number,
+    target_support_phone: settings.support_phone,
+    target_sales_whatsapp_message: settings.sales_whatsapp_message,
     target_support_enabled: settings.support_enabled,
   })
   if (error) throw error
