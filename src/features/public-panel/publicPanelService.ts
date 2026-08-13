@@ -6,6 +6,8 @@ export type PublicPanelState = {
   session_number: number
   public_token: string
   event_name: string
+  event_status: string
+  event_finished: boolean
   round_name: string
   status: 'active' | 'paused' | 'finished' | 'canceled'
   total_balls: number
