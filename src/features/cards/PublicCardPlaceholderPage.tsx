@@ -6,6 +6,7 @@ import {markedNumbers,normalizeCalledNumbers} from '@/domain/cards/publicDigital
 export function PublicCardPlaceholderPage(){
   const {token}=useParams();const [state,setState]=useState<PublicDigitalCardState|null>(null);const [error,setError]=useState<string|null>(null);const busy=useRef(false)
   const load=useCallback(async()=>{if(!token||busy.current)return;busy.current=true;try{const next=await getPublicDigitalCard(token);setState(next);setError(null)}catch{setError('Não foi possível sincronizar a cartela agora.')}finally{busy.current=false}},[token])
+  useEffect(()=>{if(new URLSearchParams(window.location.search).get('imprimir')==='1'){const id=window.setTimeout(()=>window.print(),900);return()=>window.clearTimeout(id)}},[state?.card?.id])
   useEffect(()=>{
     const sync=()=>{if(document.visibilityState==='visible')void load()}
     sync()
