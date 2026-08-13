@@ -53,12 +53,14 @@ const WinnerRegistryPage=lazy(()=>import('@/features/winners/WinnerRegistryPage'
 const BuyerCenterPage=lazy(()=>import('@/features/access/BuyerCenterPage').then(m=>({default:m.BuyerCenterPage})))
 const BuyerEventPage=lazy(()=>import('@/features/access/BuyerEventPage').then(m=>({default:m.BuyerEventPage})))
 const BuyerCardPage=lazy(()=>import('@/features/access/BuyerCardPage').then(m=>({default:m.BuyerCardPage})))
+const MarketingPage=lazy(()=>import('@/features/marketing/MarketingPage').then(m=>({default:m.MarketingPage})))
 const NotFoundPage=lazy(()=>import('@/features/platform/NotFoundPage').then(m=>({default:m.NotFoundPage})))
 
 function RouteLoading(){return <div className="p-6 text-sm font-semibold text-slate-500" role="status">Carregando…</div>}
 
 export function AppRouter(){
   return <Suspense fallback={<RouteLoading/>}><Routes>
+    <Route path="/apresentacao" element={<MarketingPage/>}/><Route path="/conheca" element={<MarketingPage/>}/>
     <Route path="/entrar" element={<LoginPage/>}/><Route path="/criar-conta" element={<RegisterPage/>}/><Route path="/confirmar-email" element={<ConfirmEmailPage/>}/><Route path="/esqueci-senha" element={<ForgotPasswordPage/>}/><Route path="/redefinir-senha" element={<ResetPasswordPage/>}/>
     <Route path="/painel-publico/:publicSessionId" element={<PublicPanelPage/>}/><Route path="/c/:token" element={<PublicCardPlaceholderPage/>}/>
     <Route element={<RequireAuth/>}><Route path="/acessos" element={<AccessCenterPage/>}/><Route path="/organizador" element={<OrganizerCenterPage/>}/><Route path="/venda" element={<SellerCenterPage/>}/><Route element={<RequireEventAccess role="seller"/>}><Route path="/venda/:eventId" element={<SellerEventPage/>}/></Route><Route path="/operador" element={<OperatorCenterPage/>}/><Route element={<RequireEventAccess role="operator"/>}><Route path="/operador/:eventId/sorteio" element={<OperatorDrawPage/>}/><Route path="/operador/:eventId/tv" element={<OperatorTvPage/>}/><Route path="/operador/:eventId/ganhadores" element={<OperatorWinnersPage/>}/></Route><Route path="/cliente" element={<BuyerCenterPage/>}/><Route element={<RequireEventAccess role="buyer"/>}><Route path="/cliente/:eventId" element={<BuyerEventPage/>}/><Route path="/cliente/:eventId/cartela/:cardId" element={<BuyerCardPage/>}/></Route><Route element={<RequirePlatformOwner/>}><Route path="/master" element={<MasterPage/>}/><Route path="/master/conferencia/:candidateId" element={<MasterConferencePage/>}/><Route path="/master/sorteio/:sessionId" element={<MasterDrawSessionPage/>}/></Route><Route path="/convites/vendedor/:token" element={<SellerInvitePage/>}/><Route path="/convites/operador/:token" element={<OperatorInvitePage/>}/><Route element={<RequirePlatformAccess/>}><Route path="/configurar-organizador" element={<div className="bingoup-app min-h-dvh p-4"><WorkspaceOnboardingPage/></div>}/><Route element={<RequireWorkspace/>}><Route element={<AppShell/>}>
