@@ -33,10 +33,10 @@ export function PlatformBrandProvider({ children }: PropsWithChildren) {
   useEffect(() => { void refreshBranding() }, [])
   const value = useMemo<BrandContextValue>(() => ({
     ...branding,
-    mainLogoUrl: publicUrl(branding.main_logo_path, '/brand/bingoup-logo-dark.png'),
-    authLogoUrl: publicUrl(branding.auth_logo_path ?? branding.main_logo_path, '/brand/bingoup-logo-dark.png'),
-    compactLogoUrl: publicUrl(branding.compact_logo_path, '/brand/bingoup-icon.png'),
-    publicPanelLogoUrl: publicUrl(branding.public_panel_logo_path ?? branding.compact_logo_path, '/brand/bingoup-icon.png'),
+    mainLogoUrl: publicUrl(branding.main_logo_path ?? branding.compact_logo_path, '/brand/bingoup-logo-dark.png'),
+    authLogoUrl: publicUrl(branding.auth_logo_path ?? branding.main_logo_path ?? branding.compact_logo_path, '/brand/bingoup-logo-dark.png'),
+    compactLogoUrl: publicUrl(branding.compact_logo_path ?? branding.main_logo_path, '/brand/bingoup-icon.png'),
+    publicPanelLogoUrl: publicUrl(branding.public_panel_logo_path ?? branding.compact_logo_path ?? branding.main_logo_path, '/brand/bingoup-icon.png'),
     refreshBranding,
   }), [branding])
   return <BrandContext.Provider value={value}>{children}</BrandContext.Provider>
