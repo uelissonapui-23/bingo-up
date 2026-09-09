@@ -8,6 +8,15 @@ export function registerPwa() {
   if ('caches' in window) void window.caches.delete('supabase-runtime')
   updateServiceWorker = registerSW({
     immediate: true,
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return
+      const checkForUpdate = () => { if (navigator.onLine) void registration.update() }
+      const interval = window.setInterval(checkForUpdate, 60_000)
+      window.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') checkForUpdate()
+      })
+      window.addEventListener('pagehide', () => window.clearInterval(interval), {once:true})
+    },
     onNeedRefresh() {
       updateAvailable = true
       window.dispatchEvent(new CustomEvent('bingo:pwa-update'))
