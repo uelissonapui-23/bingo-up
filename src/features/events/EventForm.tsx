@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
+import { Select } from '@/components/ui/Select'
 import { eventFormSchema, type EventFormValues } from './eventSchema'
 
 export function EventForm({ initialValues, onSubmit, submitLabel = 'Salvar evento', busy = false }: {
@@ -14,12 +15,13 @@ export function EventForm({ initialValues, onSubmit, submitLabel = 'Salvar event
 }) {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
-    defaultValues: { name: '', slug: '', description: '', location_name: '', address: '', starts_at: '', ends_at: '', sales_open_at: '', sales_close_at: '', default_card_price: 0, ...initialValues },
+    defaultValues: { game_mode:'number_bingo', name: '', slug: '', description: '', location_name: '', address: '', starts_at: '', ends_at: '', sales_open_at: '', sales_close_at: '', default_card_price: 0, ...initialValues },
   })
 
-  useEffect(() => { if (initialValues) reset({ name: '', slug: '', description: '', location_name: '', address: '', starts_at: '', ends_at: '', sales_open_at: '', sales_close_at: '', default_card_price: 0, ...initialValues }) }, [initialValues, reset])
+  useEffect(() => { if (initialValues) reset({ game_mode:'number_bingo', name: '', slug: '', description: '', location_name: '', address: '', starts_at: '', ends_at: '', sales_open_at: '', sales_close_at: '', default_card_price: 0, ...initialValues }) }, [initialValues, reset])
 
   return <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+    <Field label="Tipo de evento" error={errors.game_mode?.message}><Select {...register('game_mode')} disabled={Boolean(initialValues?.game_mode)}><option value="number_bingo">Bingo tradicional com números</option><option value="raffle">Rifa com números vendidos</option><option value="symbol_bingo">Bingo de símbolos e charadas</option></Select>{initialValues?.game_mode&&<span className="mt-1 block text-xs text-slate-500">O tipo fica bloqueado após a criação para proteger cartelas, vendas e sorteios.</span>}</Field>
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Nome do evento" error={errors.name?.message}><Input {...register('name')} placeholder="Bingo Beneficente" /></Field>
       <Field label="Identificador" error={errors.slug?.message}><Input {...register('slug')} placeholder="bingo-beneficente" /></Field>

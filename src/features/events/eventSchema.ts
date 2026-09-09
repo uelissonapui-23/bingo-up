@@ -3,6 +3,7 @@ import { z } from 'zod'
 const optionalDateTime = z.string().optional().or(z.literal(''))
 
 export const eventFormSchema = z.object({
+  game_mode: z.enum(['number_bingo','raffle','symbol_bingo']),
   name: z.string().trim().min(2, 'Informe um nome com pelo menos 2 caracteres.').max(160),
   slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use somente letras minúsculas, números e hífens.'),
   description: z.string().trim().max(2000).optional().or(z.literal('')),

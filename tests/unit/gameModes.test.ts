@@ -1,0 +1,6 @@
+import fs from'node:fs';import{describe,expect,it}from'vitest';import{SYMBOL_THEMES,generateSymbolCards}from'@/domain/game-modes/themes'
+describe('novos modos de jogo',()=>{
+ it('oferece temas completos para cartelas 5x5',()=>{expect(SYMBOL_THEMES.length).toBeGreaterThanOrEqual(3);for(const theme of SYMBOL_THEMES){expect(theme.items.length).toBeGreaterThanOrEqual(25);expect(new Set(theme.items.map(i=>i.label)).size).toBe(theme.items.length)}})
+ it('gera cartelas determinísticas sem repetir célula',()=>{const items=SYMBOL_THEMES[0]!.items;const cards=generateSymbolCards(items,4,10);expect(cards).toHaveLength(10);for(const card of cards){expect(card).toHaveLength(16);expect(new Set(card.map(i=>i.label)).size).toBe(16)}expect(generateSymbolCards(items,4,2)).toEqual(generateSymbolCards(items,4,2))})
+ it('mantém bingo numérico como padrão retrocompatível e protege sorteios no banco',()=>{const sql=fs.readFileSync('supabase/migrations/20260909123631_raffle_and_symbol_bingo.sql','utf8');expect(sql).toContain("default 'number_bingo'");expect(sql).toContain('enable row level security');expect(sql).toContain('no eligible sold tickets');expect(sql).toContain('revoke all on function public.draw_raffle_winner(uuid) from public,anon')})
+})
