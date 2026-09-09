@@ -5,6 +5,7 @@ export type SellerTeamRow={user_id:string;display_name:string|null;email:string|
 export type SellerInviteInfo={workspace_name:string;email:string;expires_at:string;status:string;event_names:string[]}
 export type SellerEventOption={id:string;name:string;status:string;starts_at:string|null}
 export type PendingSellerInvitation={id:string;email:string;event_ids:string[];token:string;status:'pending'|'expired';created_at:string;expires_at:string}
+export type MyPendingSellerInvitation={token:string;workspace_name:string;email:string;event_names:string[];expires_at:string}
 
 export async function listWorkspaceEvents(workspaceId:string):Promise<SellerEventOption[]>{
   const {data,error}=await supabase.from('events').select('id,name,status,starts_at').eq('workspace_id',workspaceId).neq('status','archived').order('starts_at',{ascending:true,nullsFirst:false})
@@ -20,6 +21,11 @@ export async function listPendingSellerInvitations(workspaceId:string):Promise<P
   const{data,error}=await supabase.rpc('list_pending_seller_invitations',{target_workspace_id:workspaceId})
   if(error)throw error
   return(data??[]).map((row:any)=>({...row,event_ids:row.event_ids??[]})) as PendingSellerInvitation[]
+}
+export async function listMyPendingSellerInvitations():Promise<MyPendingSellerInvitation[]>{
+  const{data,error}=await supabase.rpc('list_my_pending_seller_invitations')
+  if(error)throw error
+  return(data??[]) as MyPendingSellerInvitation[]
 }
 export async function createSellerInvitation(workspaceId:string,email:string,eventIds:string[]){
   const {data,error}=await supabase.rpc('create_seller_invitation',{target_workspace_id:workspaceId,target_email:email,target_event_ids:eventIds})
