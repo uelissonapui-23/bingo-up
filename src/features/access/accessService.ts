@@ -1,8 +1,9 @@
 import {supabase} from '@/services/supabase/client'
 
-export type AccessEvent={workspace_id:string;workspace_name:string;event_id:string;event_name:string;status:string;starts_at:string|null}
+export type GameMode='number_bingo'|'raffle'|'symbol_bingo'
+export type AccessEvent={workspace_id:string;workspace_name:string;event_id:string;event_name:string;status:string;starts_at:string|null;game_mode:GameMode}
 export type OrganizerAccess={workspace_id:string;workspace_name:string;role:string}
-export type BuyerEvent={event_id:string;event_name:string;status:string;starts_at:string|null;organizer_name:string;cards:number}
+export type BuyerEvent={event_id:string;event_name:string;status:string;starts_at:string|null;organizer_name:string;cards:number;game_mode:GameMode}
 export type AccessCenters={is_master:boolean;organizers:OrganizerAccess[];seller_events:AccessEvent[];operator_events:AccessEvent[];buyer_events:BuyerEvent[]}
 export type BuyerEventState={event:{id:string;name:string;status:string};public_session_token:string|null;winner_count:number;winner_prizes:string[];latest_win:null|{prize:string;my_winners:number;total_winners:number;buyer_name:string|null};wins:Array<{winner_id:string;prize:string;round_name:string;card_code:string;game_position:number;confirmed_at:string;delivered:boolean}>;cards:Array<{id:string;code:string;public_token:string;physical_format:number;buyer_name:string|null;is_winner:boolean}>}
 export type BuyerDigitalGame={position:number;numbers:number[];cells:Array<number|null>}
@@ -10,5 +11,7 @@ export type BuyerDigitalCardState={event:{id:string;name:string;status:string};c
 
 export async function listMyAccessCenters(){const {data,error}=await supabase.rpc('list_my_access_centers');if(error)throw error;return data as AccessCenters}
 export async function getMyBuyerEvent(eventId:string){const {data,error}=await supabase.rpc('get_my_buyer_event',{target_event_id:eventId});if(error)throw error;return data as BuyerEventState}
+export type SpecialBuyerState={event:{id:string;name:string;status:string;game_mode:'raffle'|'symbol_bingo'};config:{theme_name?:string;grid_size?:number;free_center?:boolean;prize_description?:string}|null;purchases:Array<{id:string;number:number|null;code:string|null;cells:string[]}>;items:Array<{id:string;label:string;symbol:string;riddle:string}>;draws:Array<{number?:number;item_id?:string;draw_order:number;drawn_at:string}>}
+export async function getMySpecialGameEvent(eventId:string){const{data,error}=await supabase.rpc('get_my_special_game_event',{target_event_id:eventId});if(error)throw error;return data as SpecialBuyerState}
 
 export async function getMyBuyerDigitalCard(eventId:string,cardId:string){const {data,error}=await supabase.rpc('get_my_buyer_digital_card',{target_event_id:eventId,target_card_id:cardId});if(error)throw error;return data as BuyerDigitalCardState}
