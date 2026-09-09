@@ -3,6 +3,7 @@ export type WorkspaceRole = 'organizer_owner' | 'organizer_admin' | 'event_manag
 export type MembershipStatus = 'invited' | 'active' | 'suspended' | 'revoked'
 export type EventStatus = 'draft' | 'sales_open' | 'sales_paused' | 'ready' | 'drawing' | 'paused' | 'finished' | 'canceled' | 'archived'
 export type EventSalesMode = 'open_pool' | 'assigned_cards'
+export type GameMode = 'number_bingo' | 'raffle' | 'symbol_bingo'
 
 export type Profile = {
   id: string
@@ -50,6 +51,7 @@ export type BingoEvent = {
   sales_open_at: string | null
   sales_close_at: string | null
   status: EventStatus
+  game_mode: GameMode
   banner_path: string | null
   created_by: string | null
   archived_at: string | null

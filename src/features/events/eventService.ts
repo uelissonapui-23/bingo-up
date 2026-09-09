@@ -50,7 +50,9 @@ export async function createEvent(workspaceId: string, values: EventFormValues) 
     event_default_card_price: values.default_card_price,
   })
   if (error) throw error
-  return data as string
+  const eventId=data as string
+  if(values.game_mode!=='number_bingo'){const{error:modeError}=await supabase.from('events').update({game_mode:values.game_mode}).eq('workspace_id',workspaceId).eq('id',eventId);if(modeError)throw modeError}
+  return eventId
 }
 
 export async function updateEvent(workspaceId: string, eventId: string, values: EventFormValues) {
@@ -58,7 +60,7 @@ export async function updateEvent(workspaceId: string, eventId: string, values: 
     name: values.name.trim(), slug: values.slug.trim(), description: values.description || null,
     location_name: values.location_name || null, address: values.address || null,
     starts_at: isoOrNull(values.starts_at), ends_at: isoOrNull(values.ends_at),
-    sales_open_at: isoOrNull(values.sales_open_at), sales_close_at: isoOrNull(values.sales_close_at),
+    sales_open_at: isoOrNull(values.sales_open_at), sales_close_at: isoOrNull(values.sales_close_at), game_mode:values.game_mode,
   }).eq('workspace_id', workspaceId).eq('id', eventId)
   if (error) throw error
   const { error: settingsError } = await supabase.from('event_settings').update({ default_card_price: values.default_card_price }).eq('workspace_id', workspaceId).eq('event_id', eventId)
