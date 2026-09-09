@@ -4,12 +4,12 @@ import {Card} from '@/components/ui/Card'
 import {Input} from '@/components/ui/Input'
 import {Select} from '@/components/ui/Select'
 import {getErrorMessage} from '@/lib/errors'
-import {getRaffle,getSymbolCards,updateSymbolCard,updateTicket,type RaffleTicket,type SymbolCard} from './gameModeService'
+import {getRaffle,getSpecialGameDefaultPrice,getSymbolCards,updateSymbolCard,updateTicket,type RaffleTicket,type SymbolCard} from './gameModeService'
 
 type SaleItem=RaffleTicket|SymbolCard
 export function SpecialModeSalesPage({eventId,mode}:{eventId:string;mode:'raffle'|'symbol_bingo'}){
  const[items,setItems]=useState<SaleItem[]>([]),[defaultPrice,setDefaultPrice]=useState(0),[selected,setSelected]=useState<SaleItem|null>(null),[query,setQuery]=useState(''),[error,setError]=useState(''),[dialogError,setDialogError]=useState(''),[success,setSuccess]=useState(''),[editStatus,setEditStatus]=useState<RaffleTicket['status']>('sold'),[busy,setBusy]=useState(false)
- const load=useCallback(async()=>{try{if(mode==='raffle'){const raffle=await getRaffle(eventId);setItems(raffle.tickets);setDefaultPrice(Number(raffle.config?.ticket_price??0))}else setItems(await getSymbolCards(eventId));setError('')}catch(e){setError(getErrorMessage(e,'Não foi possível carregar a disponibilidade.'))}},[eventId,mode])
+ const load=useCallback(async()=>{try{if(mode==='raffle'){const raffle=await getRaffle(eventId);setItems(raffle.tickets)}else setItems(await getSymbolCards(eventId));setDefaultPrice(await getSpecialGameDefaultPrice(eventId));setError('')}catch(e){setError(getErrorMessage(e,'Não foi possível carregar a disponibilidade.'))}},[eventId,mode])
  useEffect(()=>{void load()},[load])
  const filtered=useMemo(()=>items.filter(i=>{const label='number'in i?String(i.number):i.code;return !query||label.toLowerCase().includes(query.toLowerCase())||i.buyer_name?.toLowerCase().includes(query.toLowerCase())}),[items,query])
  function openItem(item:SaleItem){setSelected({...item,sold_price:item.sold_price??defaultPrice});setEditStatus(item.status==='available'?'sold':item.status);setDialogError('');setSuccess('')}
