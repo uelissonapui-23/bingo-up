@@ -19,4 +19,9 @@ describe('fluxo de venda dos modos especiais',()=>{
     expect(salesPage).toContain('vendido com sucesso.')
     expect(salesPage).toContain('<p role="status"')
   })
+
+  it('preserva o preço configurado e mostra erros reais da API',()=>{
+    expect(salesPage).toContain('sold_price:item.sold_price??defaultPrice')
+    expect(salesPage).toContain("getErrorMessage(x,'Não foi possível registrar a venda.')")
+  })
 })

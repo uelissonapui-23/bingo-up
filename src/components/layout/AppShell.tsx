@@ -1,10 +1,8 @@
 import { useState } from 'react'
-import { OfflineBanner } from '@/components/ui/OfflineBanner'
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/app/providers/AuthProvider'
 import { useWorkspace } from '@/app/providers/WorkspaceProvider'
 import { Button } from '@/components/ui/Button'
-import { PwaStatus } from '@/components/ui/PwaStatus'
 import { usePlatformBrand } from '@/components/brand/PlatformBrandProvider'
 
 const organizerNav = [
@@ -45,8 +43,6 @@ export function AppShell() {
   if(!operatorPathAllowed)return <Navigate to="/sorteio" replace/>
 
   return <>
-    <OfflineBanner />
-    <PwaStatus />
     <div className="bingoup-app min-h-dvh">
       <aside className="bingoup-sidebar hidden xl:flex">
         <NavLink to="/" className="bingoup-brand">
