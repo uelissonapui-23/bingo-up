@@ -1,0 +1,7 @@
+import {useCallback,useEffect,useState} from 'react'
+import {Button} from '@/components/ui/Button'
+import {Card} from '@/components/ui/Card'
+import {Input} from '@/components/ui/Input'
+import {generateStoredSymbolCards,getSymbolCards} from './gameModeService'
+
+export function SymbolInventoryManager({eventId}:{eventId:string}){const[quantity,setQuantity]=useState(12),[count,setCount]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState('');const load=useCallback(()=>void getSymbolCards(eventId).then(v=>setCount(v.length)).catch(()=>setError('Não foi possível carregar o estoque de cartelas.')),[eventId]);useEffect(load,[load]);async function generate(){setBusy(true);try{await generateStoredSymbolCards(eventId,quantity);load();setError('')}catch(e){setError(e instanceof Error?e.message:'Não foi possível gerar as cartelas.')}finally{setBusy(false)}}return <Card><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-lg font-black">Estoque para venda</h2><p className="mt-1 text-sm text-slate-600">{count} cartela(s) persistida(s). Vendedores verão apenas este estoque.</p></div><label className="text-sm font-semibold">Nova quantidade<Input className="w-32" type="number" min={1} max={200} value={quantity} onChange={e=>setQuantity(Math.max(1,Math.min(200,Number(e.target.value))))}/></label></div>{error&&<p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}<Button className="mt-4" disabled={busy} onClick={()=>void generate()}>{busy?'Gerando…':'Gerar cartelas para venda'}</Button></Card>}

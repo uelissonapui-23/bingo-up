@@ -2,13 +2,16 @@ import {useCallback,useEffect,useState} from 'react'
 import {Link,useParams} from 'react-router-dom'
 import {Button} from '@/components/ui/Button'
 import {Card} from '@/components/ui/Card'
-import {getMyBuyerEvent,type BuyerEventState} from './accessService'
+import {getMyBuyerEvent,listMyAccessCenters,type BuyerEventState,type GameMode} from './accessService'
+import {SpecialBuyerEventPage} from './SpecialBuyerEventPage'
 import {RoleShell} from './SellerCenterPage'
 
 export function BuyerEventPage(){
- const {eventId=''}=useParams();const [state,setState]=useState<BuyerEventState|null>(null);const [error,setError]=useState<string|null>(null)
+ const {eventId=''}=useParams();const [state,setState]=useState<BuyerEventState|null>(null);const [mode,setMode]=useState<GameMode|null>(null);const [error,setError]=useState<string|null>(null)
  const load=useCallback(async()=>{try{setState(await getMyBuyerEvent(eventId));setError(null)}catch(e){setError(e instanceof Error?e.message:'Não foi possível carregar suas cartelas.')}},[eventId])
- useEffect(()=>{void load();const id=window.setInterval(()=>void load(),2500);return()=>window.clearInterval(id)},[load])
+ useEffect(()=>{void listMyAccessCenters().then(v=>{const item=v.buyer_events.find(x=>x.event_id===eventId);if(!item)throw new Error('Compra não encontrada para esta conta.');setMode(item.game_mode)}).catch(e=>setError(e instanceof Error?e.message:'Acesso negado.'))},[eventId])
+ useEffect(()=>{if(mode!=='number_bingo')return;void load();const id=window.setInterval(()=>void load(),2500);return()=>window.clearInterval(id)},[load,mode])
+ if(mode&&mode!=='number_bingo')return <RoleShell title="Minha compra" subtitle="Acompanhamento exclusivo deste modo de jogo." error={error}><SpecialBuyerEventPage eventId={eventId}/></RoleShell>
  return <RoleShell title={state?.event.name??'Minhas cartelas'} subtitle="Suas cartelas, sorteio ao vivo e prêmios confirmados em um só lugar." error={error}>
   {state?.latest_win&&<div className="rounded-2xl border border-emerald-500 bg-emerald-950/40 p-5 text-emerald-100"><p className="text-sm font-black uppercase tracking-[.15em] text-emerald-400">Prêmio confirmado</p><h2 className="mt-1 text-2xl font-black">Você{state.latest_win.buyer_name?`, ${state.latest_win.buyer_name}`:''}, foi ganhador!</h2><p className="mt-2 text-sm"><strong>{state.latest_win.prize}</strong>. {state.latest_win.total_winners>state.latest_win.my_winners?`Você ganhou junto com outras ${state.latest_win.total_winners-state.latest_win.my_winners} pessoa(s).`:'Sua vitória foi confirmada pelo organizador.'}</p></div>}
   <div className="grid gap-4 lg:grid-cols-[1.2fr_.8fr]"><Card><h2 className="text-lg font-black text-white">Sorteio do evento</h2>{state?.public_session_token?<><p className="mt-1 text-sm text-slate-400">Acompanhe a mesma tela exibida no painel público, atualizada pelo evento.</p><a href={`/painel-publico/${state.public_session_token}`} target="_blank" rel="noreferrer"><Button className="mt-4">Assistir sorteio ao vivo</Button></a></>:<p className="mt-2 text-sm text-slate-400">Nenhum sorteio disponível neste momento.</p>}</Card><Card><h2 className="text-lg font-black text-white">Resumo</h2><div className="mt-3 grid grid-cols-2 gap-3"><Stat label="Cartelas" value={state?.cards.length??0}/><Stat label="Prêmios" value={state?.winner_count??0}/></div></Card></div>
