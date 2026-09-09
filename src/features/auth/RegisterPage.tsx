@@ -17,11 +17,14 @@ export function RegisterPage() {
     e.preventDefault(); setBusy(true); setError(''); setMessage('')
     const confirmUrl=new URL('/confirmar-email',window.location.origin)
     if(next)confirmUrl.searchParams.set('next',next)
-    const { data, error } = await supabase.auth.signUp({email,password,options:{data:{display_name:name.trim()},emailRedirectTo:confirmUrl.toString()}})
-    if (error) setError(error.message.includes('registered') ? 'Este e-mail já possui uma conta.' : 'Não foi possível criar a conta.')
-    else if (data.session) setMessage(next?.startsWith('/convites/')?'Conta criada. Continue pelo convite para ativar seu acesso.':'Conta criada. Seu acesso ficará aguardando liberação da equipe responsável.')
-    else setMessage(next?.startsWith('/convites/')?'Conta criada. Confirme seu e-mail. Depois do login você voltará automaticamente para este convite.':'Conta criada. Abra o e-mail de confirmação. Depois de confirmar, você voltará para a tela de login.')
-    setBusy(false)
+    try {
+      const { data, error } = await supabase.auth.signUp({email:email.trim(),password,options:{data:{display_name:name.trim()},emailRedirectTo:confirmUrl.toString()}})
+      if (error) setError(error.message.includes('registered') ? 'Este e-mail já possui uma conta.' : 'Não foi possível criar a conta. Tente novamente em instantes.')
+      else if (data.session) setMessage(next?.startsWith('/convites/')?'Conta criada. Continue pelo convite para ativar seu acesso.':'Conta criada. Seu acesso ficará aguardando liberação da equipe responsável.')
+      else setMessage(next?.startsWith('/convites/')?'Conta criada. Confirme seu e-mail. Depois do login você voltará automaticamente para este convite.':'Conta criada. Abra o e-mail de confirmação. Verifique também a caixa de spam.')
+    } catch {
+      setError('Não foi possível conectar ao serviço de acesso. Tente novamente em instantes.')
+    } finally { setBusy(false) }
   }
 
   const invited=Boolean(next?.startsWith('/convites/'))
