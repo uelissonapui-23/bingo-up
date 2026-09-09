@@ -13,7 +13,7 @@ export function EventForm({ initialValues, onSubmit, submitLabel = 'Salvar event
   submitLabel?: string
   busy?: boolean
 }) {
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<EventFormValues>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: { game_mode:'number_bingo', name: '', slug: '', description: '', location_name: '', address: '', starts_at: '', ends_at: '', sales_open_at: '', sales_close_at: '', default_card_price: 0, ...initialValues },
   })
@@ -39,7 +39,7 @@ export function EventForm({ initialValues, onSubmit, submitLabel = 'Salvar event
       <Field label="Abertura das vendas" error={errors.sales_open_at?.message}><Input type="datetime-local" {...register('sales_open_at')} /></Field>
       <Field label="Encerramento das vendas" error={errors.sales_close_at?.message}><Input type="datetime-local" {...register('sales_close_at')} /></Field>
     </div>
-    <Field label="Valor padrão da cartela" error={errors.default_card_price?.message}><Input type="number" min="0" step="0.01" {...register('default_card_price', { valueAsNumber: true })} /></Field>
+    <Field label={watch('game_mode')==='raffle'?'Valor padrão do número':'Valor padrão da cartela'} error={errors.default_card_price?.message}><Input type="number" min="0" step="0.01" {...register('default_card_price', { valueAsNumber: true })} /></Field>
     <Button type="submit" disabled={busy}>{busy ? 'Salvando…' : submitLabel}</Button>
   </form>
 }

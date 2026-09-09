@@ -52,6 +52,12 @@ export async function createEvent(workspaceId: string, values: EventFormValues) 
   if (error) throw error
   const eventId=data as string
   if(values.game_mode!=='number_bingo'){const{error:modeError}=await supabase.from('events').update({game_mode:values.game_mode}).eq('workspace_id',workspaceId).eq('id',eventId);if(modeError)throw modeError}
+  if(values.game_mode==='raffle'){
+    const{error:configError}=await supabase.rpc('configure_raffle',{target_event_id:eventId,target_total_numbers:100,target_ticket_price:values.default_card_price,target_animation_seconds:8,target_prize:'Prêmio principal'})
+    if(configError)throw configError
+    const{error:prizeError}=await supabase.rpc('configure_raffle_prizes',{target_event_id:eventId,target_prizes:[{name:'Prêmio principal',description:''}]})
+    if(prizeError)throw prizeError
+  }
   return eventId
 }
 
